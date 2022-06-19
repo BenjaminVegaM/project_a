@@ -305,8 +305,8 @@ void printChara(Character * chara)
 void levelUp(Character * chara)
 {
     if(chara->isPlayer == 1) printf("-----LEVEL UP!-----\n");
-    else printf("-----THE ENEMY HAS LEVELED UP!!!-----\n");
-    
+    else printf("-----THE ENEMY HAS LEVELED UP!!!-----\nThey have gained some stats, be careful...\n");
+
     chara->level++;
     printf("Level %i -> %i\n", chara->level-1, chara->level);
 
@@ -353,6 +353,7 @@ void levelUp(Character * chara)
 void giveExperience(Character * chara, int exp)
 {
     chara->experience += exp;
+    printf("%s +%i exp\n", chara->name, exp);
     if(chara->experience > chara->expToLvlUp)
     {
         chara->experience-=chara->expToLvlUp;
@@ -364,8 +365,9 @@ int dealDamage(Character * attacker, Character * defender)
 {
     int damageDealt = fmax(1, attacker->stats->atk - defender->stats->def);
     if(defender->state == 2) damageDealt = fmax(1, damageDealt/2);
-
     printf("Damage dealt = %i\n", damageDealt);
+    giveExperience(attacker, fmax(1, damageDealt/3));
+
     return damageDealt;
 }
 
@@ -379,6 +381,7 @@ int attack(Character * attacker, Character * defender)
     {
         defender->state = 0;
         printf("%s defended the attack and is not defending anymore.\n", defender->name);
+        giveExperience(defender, 1);
     }
     printf("%s's HP [%i/%i]\n",defender->name, defender->currentHP, defender->stats->hp);
     pressEnterToContinue();
@@ -386,7 +389,7 @@ int attack(Character * attacker, Character * defender)
     if(defender->currentHP == 0)
     {
         printf("%s has been defeated!\n", defender->name);
-        levelUp(attacker);
+        giveExperience(attacker, defender->level*6);
         pressEnterToContinue();
         return 1;
     }
