@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <time.h>
+#include "list.h"
 
 typedef struct
 {
@@ -16,12 +17,17 @@ typedef struct
 
 typedef struct
 {
+    int isPlayer; //1 Player, 0 otherwise
     char name[25];
     int race; //a number that represents the race
     int level;
+    int experience;
+    int expToLvlUp;
     int state;
     int currentHP;
     Stats * stats;
+    List * inventory;
+
 } Character;
 
 typedef struct
@@ -56,8 +62,10 @@ void pressEnterToContinue()
     }
 }
 
+
+
 // Generates random stats based on the Level of the character
-Stats * genRanCharaStats(int level)
+Stats * genRanStats(int level)
 {
     float randNum;
     Stats * stats = (Stats *) malloc (sizeof (Stats));
@@ -65,7 +73,7 @@ Stats * genRanCharaStats(int level)
     randNum = randFloatLimits(80, 120)/100;
     stats->hp = level * randNum + 5;
 
-    randNum = randFloatLimits(80, 120)/100;
+    randNum = fmax(1, randFloatLimits(80, 120)/100);
     stats->atk = level * randNum;
 
     randNum = randFloatLimits(80, 120)/100;
@@ -115,6 +123,47 @@ const char * getRaceString(int raceInt)
     }
 }
 
+//Función para tomar un string de una coordenada específica de un archivo .csv
+const char *get_csv_field (char * tmp, int k) {
+    int open_mark = 0;
+    char* ret=(char*) malloc (100*sizeof(char));
+    int ini_i=0, i=0;
+    int j=0;
+    while(tmp[i+1]!='\0' && tmp[i+1]!='\n'){
+
+        if(tmp[i]== '\"'){
+            open_mark = 1-open_mark;
+            if(open_mark) ini_i = i+1;
+            i++;
+            continue;
+        }
+
+        if(open_mark || tmp[i]!= ','){
+            if(k==j) ret[i-ini_i] = tmp[i];
+            i++;
+            continue;
+        }
+
+        if(tmp[i]== ','){
+            if(k==j) {
+               ret[i-ini_i] = 0;
+               return ret;
+            }
+            j++; ini_i = i+1;
+        }
+
+        i++;
+    }
+
+    if(k==j) {
+       ret[i-ini_i] = 0;
+       return ret;
+    }
+
+
+    return NULL;
+}
+
 /*
 const char * getRaceString(int raceInt)
 {
@@ -161,16 +210,68 @@ Character * generateChara(Stats * stats, int level, char * name, int race)
     strcpy(newChar->name, name);
     newChar->race = race;
     newChar->level = level;
+    newChar->experience = 0;
+    newChar->expToLvlUp = level*5;
     newChar->state = 0;
     newChar->stats = stats;
     newChar->currentHP = stats->hp;
+    newChar->inventory = createList();
+    newChar->isPlayer = 0;
     return newChar;
+}
+
+void generateRandomWeaponInventory(Character * chara)
+{
+    int i;
+    for(i = 0 ; i < 3 ; i++)
+    {
+        printf("Generando arma %i\n", i+1);
+        Weapon * newWeapon = (Weapon*) malloc (sizeof(Weapon));
+        strcpy(newWeapon->description, "This is the description");
+        newWeapon->stats = genRanStats(5);
+        newWeapon->stats->hp*=10;
+        newWeapon->effectiveness = randIntLimits(0,3);
+        strcpy(newWeapon->name, "Super Cool Weapon");
+
+        pushBack(chara->inventory, newWeapon);
+        printf("Arma %i obtenida\n", i+1);
+    }
+}
+
+void printWeapon(Weapon * weapon)
+{
+    printf("Name: [%s]\n", weapon->name);
+    printf("Description: [%s]\n", weapon->description);
+}
+
+void showInventory(Character * chara)
+{
+    if(chara->inventory == NULL)
+    {
+        printf("The inventory is empty!\n");
+        return;
+    }
+
+    Weapon * auxWpn = firstList(chara->inventory);
+
+    if(chara->inventory == NULL)
+    {
+        printf("The inventory is empty!\n");
+        return;
+    }
+
+    int i = 0;
+    while(auxWpn != NULL && i < 3)
+    {
+        i++;
+        printWeapon(auxWpn);
+    }
 }
 
 Character * genRanChara(int level)
 {
     int race = randIntLimits(0, 6);
-    Character * newChar = generateChara(genRanCharaStats(level), level, (char*)getRaceString(race), race);
+    Character * newChar = generateChara(genRanStats(level), level, (char*)getRaceString(race), race);
     return newChar;
 }
 
@@ -181,7 +282,7 @@ Character * createChara()
     getchar();
     gets(name);
 
-    Stats * stats = genRanCharaStats(10);
+    Stats * stats = genRanStats(3);
 
     Character * newChar = generateChara(stats, 1, name, 1);
     return newChar;
@@ -191,6 +292,7 @@ void printChara(Character * chara)
 {
     printf("Name  [%s]\n", chara->name);
     printf("Level [%i]\n", chara->level);
+    printf("Exp: [%i/%i]\n", chara->experience, chara->expToLvlUp);
     printf("Race  [%s]\n", getRaceString(chara->race));
     printf("Stats:\n");
     printf("    HP  [%i/%i]\n", chara->currentHP, chara->stats->hp);
@@ -202,54 +304,66 @@ void printChara(Character * chara)
 
 void levelUp(Character * chara)
 {
-    printf("-----LEVEL UP!-----\n");
+    if(chara->isPlayer == 1) printf("-----LEVEL UP!-----\n");
+    else printf("-----THE ENEMY HAS LEVELED UP!!!-----\n");
+    
     chara->level++;
+    printf("Level %i -> %i\n", chara->level-1, chara->level);
 
     int chance = randIntLimits(0, 100);
     if(chance <= 65)
     {
         chara->stats->hp++;
         chara->currentHP++;
-        printf("HP +1\n");
+        if(chara->isPlayer == 1) printf("HP +1\n");
     }
 
     chance = randIntLimits(0, 100);
     if(chance <= 60)
     {
         chara->stats->atk++;
-        printf("Atk +1\n");
+        if(chara->isPlayer == 1) printf("Atk +1\n");
     }
 
     chance = randIntLimits(0, 100);
     if(chance <= 40)
     {
         chara->stats->spd++;
-        printf("Spd +1\n");
+        if(chara->isPlayer == 1) printf("Spd +1\n");
     }
 
     chance = randIntLimits(0, 100);
     if(chance <= 40)
     {
         chara->stats->def++;
-        printf("Def +1\n");
+        if(chara->isPlayer == 1) printf("Def +1\n");
     }
 
     chance = randIntLimits(0, 100);
     if(chance <= 50)
     {
         chara->stats->res++;
-        printf("Res +1\n");
+        if(chara->isPlayer == 1) printf("Res +1\n");
     }
-    printf("-------------------\n");
+    if(chara->isPlayer == 1) printf("-------------------\n");
+
+    chara->expToLvlUp+=5;
+}
+
+void giveExperience(Character * chara, int exp)
+{
+    chara->experience += exp;
+    if(chara->experience > chara->expToLvlUp)
+    {
+        chara->experience-=chara->expToLvlUp;
+        levelUp(chara);
+    }
 }
 
 int dealDamage(Character * attacker, Character * defender)
 {
-    int damageDealt;
-    damageDealt = attacker->stats->atk - defender->stats->def;
-    if(defender->state == 2) damageDealt = damageDealt/2;
-
-    if(damageDealt < 1) damageDealt = 1;
+    int damageDealt = fmax(1, attacker->stats->atk - defender->stats->def);
+    if(defender->state == 2) damageDealt = fmax(1, damageDealt/2);
 
     printf("Damage dealt = %i\n", damageDealt);
     return damageDealt;
@@ -258,17 +372,17 @@ int dealDamage(Character * attacker, Character * defender)
 //Returns 0 if the enemy is alive, and 1 if the enemy died because of the attack
 int attack(Character * attacker, Character * defender)
 {
-    defender->currentHP -= dealDamage(attacker, defender);
+    defender->currentHP = fmax(0, defender->currentHP - dealDamage(attacker, defender));
+    pressEnterToContinue();
+
     if(defender->state == 2)
     {
         defender->state = 0;
-        pressEnterToContinue();
         printf("%s defended the attack and is not defending anymore.\n", defender->name);
     }
-    if(defender->currentHP < 0) defender->currentHP = 0;
-    pressEnterToContinue();
     printf("%s's HP [%i/%i]\n",defender->name, defender->currentHP, defender->stats->hp);
     pressEnterToContinue();
+    attacker->state = 0;
     if(defender->currentHP == 0)
     {
         printf("%s has been defeated!\n", defender->name);
@@ -279,13 +393,15 @@ int attack(Character * attacker, Character * defender)
     return 0;
 }
 
-int playerPhase(Character * chara1, Character * chara2)
+int playerPhase(Character * chara1, Character * chara2, int score)
 {
     int op;
     printf("-----Your turn!-----\n");
     do
     {
-        printf("1. Attack\n2. Defend\n3. Show current status\n");
+        printf("1. Attack\n");
+        printf("2. Defend\n");
+        printf("3. Show current status\n");
         scanf("%i", &op);
         switch(op)
         {
@@ -293,20 +409,27 @@ int playerPhase(Character * chara1, Character * chara2)
             {
                 printf("%s attacks!\n", chara1->name);
                 chara1->state = 1;
+                score+=2;
                 if(attack(chara1, chara2) == 1) return 1;
+                break;
             }
             case 2:
             {
                 printf("%s is defending the next attack!\n", chara1->name);
                 chara1->state = 2;
+                score++;
+                break;
             }
             case 3:
-            printf("Your current status:\n");
-            printChara(chara1);
+            {
+                printf("Your current status:\n");
+                printChara(chara1);
+                break;
+            }
         }
         pressEnterToContinue();
     } while (op == 3);
-    
+   return 0;
 }
 
 int aiPhase(Character * chara1, Character * chara2)
@@ -314,20 +437,11 @@ int aiPhase(Character * chara1, Character * chara2)
     int op;
     printf("-----Enemy turn!-----\n");
     int chance;
-    if(chara1->currentHP >= chara1->currentHP/2)
-    {
-        op = 1;
-    }
+    if(chara1->currentHP >= chara1->currentHP/2) op = 1;
     else
     {
-        if(randIntLimits(1,100) >= 50)
-        {
-            op = 1;
-        }
-        else
-        {
-            op = 2;
-        }
+        if(randIntLimits(1,100) >= 50) op = 1;
+        else op = 2;
     }
     switch(op)
     {
@@ -336,40 +450,61 @@ int aiPhase(Character * chara1, Character * chara2)
             printf("%s attacks!\n", chara1->name);
             chara1->state = 1;
             if(attack(chara1, chara2) == 1) return 1;
+            break;
         }
         case 2:
         {
             printf("%s is defending the next attack!\n", chara1->name);
             chara1->state = 2;
+            break;
         }
     }
     pressEnterToContinue();
 }
 
+void saveScore(Character * chara, int score)
+{
+    printf("Your score with %s was [%i]\n", chara->name, score);
+}
+
 void play()
 {
-    int state = 1;
-    int turn;
-    Character * chara1 = createChara();
+    Character * playerChara = createChara();
+    playerChara->isPlayer = 1;
+    int state = 1, turn, room = 0, floor = 1, score = 0, chara2Level;
+
     printf("\nYour character's (randomly generated) stats:\n");
-    printChara(chara1);
-    Character * chara2;
+    printChara(playerChara);
+
+    Character * enemyChara;
 
     printf("\n");
-
     while(state != 0)
     {
         switch(state)
         {
             case 1:
             {
+                // Before a new combat, an Enemy has to be generated
                 pressEnterToContinue();
                 printf("-----Before combat-----\n");
-                turn = 0;
+                turn = 0, room++, score++;
+                if(room%11 == 0) floor++, room = 0, score+=2;
+
+                printf("Floor [%i] Room [%i]\n", floor, room);
+                pressEnterToContinue();
+
                 printf("Generating new enemy\n");
                 pressEnterToContinue();
-                chara2 = genRanChara((int)((randFloatLimits(80, 120)/100)*chara1->level));
-                printChara(chara2);
+                chara2Level = (int)((randFloatLimits(80, 120)/100)*playerChara->level);
+                
+                //In case the level is 0
+                if(chara2Level == 0) chara2Level = 1;
+
+                enemyChara = genRanChara(chara2Level);
+                printChara(enemyChara);
+
+                //Entering the Combating state
                 state = 2;
                 break;
             }
@@ -378,36 +513,38 @@ void play()
                 turn++;
                 printf("-----Turn %i-----\n", turn);
                 pressEnterToContinue();
-                if(chara1->stats->spd > chara2->stats->spd)
+                if(playerChara->stats->spd > enemyChara->stats->spd)
                 {
-                    if(playerPhase(chara1, chara2) == 1)
+                    if(playerPhase(playerChara, enemyChara, score) == 1)
                     {
-                        state = 3;
                         printf("The foe has been defeated!\n");
+                        state = 3;
+                        score+=3;
                         pressEnterToContinue();
                         continue;
                     }
-                    if(aiPhase(chara2, chara1) == 1)
+                    if(aiPhase(enemyChara, playerChara) == 1)
                     {
-                        state = 5;
                         printf("You have been defeated...\n");
+                        state = 5;
                         pressEnterToContinue();
                         continue;
                     }
                 }
-                else if(chara1->stats->spd <= chara2->stats->spd)
+                else if(playerChara->stats->spd <= enemyChara->stats->spd)
                 {
-                    if(aiPhase(chara2, chara1) == 1)
+                    if(aiPhase(enemyChara, playerChara) == 1)
                     {
-                        state = 5;
                         printf("You have been defeated...\n");
+                        state = 5;
                         pressEnterToContinue();
                         continue;
                     }
-                    if(playerPhase(chara1, chara2) == 1)
+                    if(playerPhase(playerChara, enemyChara, score) == 1)
                     {
-                        state = 3;
                         printf("The foe has been defeated!\n");
+                        state = 3;
+                        score+=3;
                         pressEnterToContinue();
                         continue;
                     }
@@ -418,21 +555,23 @@ void play()
             {
                 printf("-----After combat-----\n");
                 printf("Your current state:\n");
-                printChara(chara1);
+                printChara(playerChara);
                 state = 1;
-                if(turn > 20) state = 0;
+                if(turn > 20) state = 4;
                 pressEnterToContinue();
                 break;
             }
             case 4:
             {
-                state = 0;
-                break;
+                printf("You took so long to defeat the enemy that more enemies came and you coulnd't against all of them.\n");
+                state = 5;
             }
             case 5:
             {
                 printf("Game over");
                 pressEnterToContinue();
+                saveScore(playerChara, score);
+                state = 0;
                 return;
             }
 
@@ -441,19 +580,45 @@ void play()
 
 }
 
+void showHighScores()
+{
+    char line[25];
+    FILE * file = fopen("highscores.csv", "r");
+    if(file == NULL)
+    {
+        printf("There was an error loading the highscores, the file highscores.csv may be damaged.\n");
+        exit(1);
+    }
+    
+    if(fgets(line, 1023, file) == NULL)
+    {
+        printf("There are no HighScores yet, go and be the first!\n");
+        return;
+    }
+    
+    printf("-----------------HIGHSCORES-----------------\n");
+
+    do{
+        printf("%-24s %19i\n", get_csv_field(line, 0), atoi(get_csv_field(line, 1)));
+    }while(fgets(line, 1023, file) != NULL);
+    fclose(file);
+    pressEnterToContinue();
+}
+
 int main()
 {
     srand(time(NULL));
     int op = 0;
     printf("------------------Start------------------\n");
 
-    while(op != 3)
+    while(op != 4)
     {
         pressEnterToContinue();
         printf("\n--------------------MENU--------------------\n");
-        printf("1. Play\n");
-        printf("2. Highscores\n");
-        printf("3. Exit\n");
+        printf("1. New run\n");
+        printf("2. Continue\n");
+        printf("3. Highscores\n");
+        printf("4. Exit\n");
         printf("--------------------------------------------\n");
         printf("Input an option:\n");
         scanf("%i", &op);
@@ -466,12 +631,17 @@ int main()
             }
             case 2:
             {
-                printf("Not available in this version.\n");
+                printf("Not yet available in this version.\n");
                 break;
             }
             case 3:
             {
-                printf("Exiting...");
+                showHighScores();
+                break;
+            }
+            case 4:
+            {
+                printf("Exiting the game...");
                 break;
             }
         }
