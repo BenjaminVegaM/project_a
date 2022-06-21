@@ -18,7 +18,7 @@ typedef struct
 typedef struct
 {
     char name[40];
-    char description[500];
+    char description[200];
     int rarity;
     int currentDurability;
     int maxDurability;
@@ -49,8 +49,14 @@ typedef struct
     int used;//If it's an epic or higher rarity weapon, there can only be one of those per run. 0 if they are infinite, 1 if they are limited and 2 if they already appeared.
 } WeaponNode;
 
+typedef struct 
+{
+    List * list;
+    int amount;
+} WeaponListNode;
+
 //Global Variable
-List ** weaponsList;
+WeaponListNode * weaponsList;
 
 //generates a random Integer number within a range
 int randIntLimits(int lower, int upper)
@@ -211,7 +217,7 @@ void showWeapons(Character * chara)
 {
     if(chara->weapons[1] == NULL && chara->weapons[2] == NULL && chara->weapons[3] == NULL)
     {
-        printf("You have no weapons!\n");
+        printf("It's completely empty!\n");
         return;
     }
 
@@ -245,21 +251,27 @@ Weapon * createWeapon(char * name, char * description, int rarity, int durabilit
 int getRanWpnRarity()
 {
     //dependiendo del nivel tiene mas o menos chance de cada rareza
+    int n = randIntLimits(0,5);
+    return n;
 }
 
 Weapon * getRanWeapon(int rarity)
 {
-    Weapon * weapon = firstList(weaponsList[rarity-1]);
+    Weapon * weapon = firstList(weaponsList[rarity-1].list);
     if(weapon == NULL)
     {
-        printf("There are no weapons of [%s] rarity on [weapons.csv], please add at least one.", getRarityString(rarity));
+        printf("There are no weapons of rarity [%s] on [weapons.csv], please add at least one.", getRarityString(rarity));
         exit(1);
     }
-    int i = 3;
-    for(int j = 0 ; j < 3 ; j++)
+    int i = randIntLimits(0,weaponsList[rarity-1].amount-1); //should be a randInt from 0 to the max amount of weapons of rarity
+    for(int j = 0 ; j < i ; j++)
     {
-        weapon = nextList(weaponsList[rarity-1]);
-        if(weapon == NULL) break;
+        weapon = nextList(weaponsList[rarity-1].list);
+        if(weapon == NULL)
+        {
+            weapon = prevList(weaponsList[rarity-1].list);
+            break;
+        }
     }
     weapon = createWeapon(weapon->name, weapon->description, weapon->rarity, weapon->maxDurability, weapon->effectiveness, weapon->damageType, weapon->stats->hp, weapon->stats->atk, weapon->stats->spd, weapon->stats->def, weapon->stats->res);
     return weapon;
@@ -292,17 +304,18 @@ void readWeapons()
         exit(1);
     }
     printf("mallocing List**\n");
-    weaponsList = (List **) malloc (4*sizeof(List *));
+    weaponsList = (WeaponListNode *) malloc (5*sizeof(WeaponListNode));
     int i;
     printf("creating the 4 lists\n");
-    for(i = 0 ; i < 5 ; i++)
+    for(i = 0 ; i < 6 ; i++)
     {
-        weaponsList[i] = createList();
-        if(weaponsList[i] == NULL)
+        weaponsList[i].list = createList();
+        if(weaponsList[i].list == NULL)
         {
             printf("There was an error while reading the [weapons.csv] file.");
             exit(1);
         }
+        weaponsList[i].amount = 0;
     }
     char l[1024];
     i = 0;
@@ -311,7 +324,6 @@ void readWeapons()
         if(i == 0) i = 1;
         else
         {
-            printf("---------Reading new weapon---------\n");
             Weapon * newWeapon = (Weapon *) malloc (sizeof(Weapon));
             if(newWeapon == NULL)
             {
@@ -324,8 +336,7 @@ void readWeapons()
             newWeapon->maxDurability = atoi(getCSVField(l,3));
             newWeapon->currentDurability = atoi(getCSVField(l,3));
             newWeapon->effectiveness = atoi(getCSVField(l,4));
-            newWeapon->damageType = atoi(getCSVField(l,5));
-
+            newWeapon->damageType = atoi(getCSVField(l,5));            
             newWeapon->stats = (Stats *) malloc (sizeof(Stats));
             if(newWeapon->stats == NULL)
             {
@@ -337,13 +348,13 @@ void readWeapons()
             newWeapon->stats->spd = atoi(getCSVField(l,8));
             newWeapon->stats->def = atoi(getCSVField(l,9));
             newWeapon->stats->res = atoi(getCSVField(l,10));
-            printf("printing newWeapon\n");
-            printWeapon(newWeapon);
-            printf("Pushing Back\n");
-            pushBack(weaponsList[newWeapon->rarity-1], newWeapon);
-            printf("Weapon successfully added into the list of rarity %i\n", newWeapon->rarity);
+
+            //printWeapon(newWeapon);
+            pushBack(weaponsList[newWeapon->rarity-1].list, newWeapon);
+            weaponsList[newWeapon->rarity-1].amount++;
         }
     }
+    fclose(f);
 }
 
 // Generates a character with the stats
@@ -381,7 +392,7 @@ Character * genRanChara(int level)
     int race = randIntLimits(1, atoi(getCSVField(l, 0)));
     Character * newChara = generateChara(genRanCharStats(level), level, (char*)getRaceString(race), race);
     newChara->experience = randIntLimits(0, newChara->expToLvlUp-1);
-    giveWeapon(newChara, getRanWeapon(3));
+    giveWeapon(newChara, getRanWeapon(getRanWpnRarity()));
     chooseNextAvailableWeapon(newChara);
     return newChara;
 }
@@ -432,7 +443,7 @@ void lowerWeaponDurability(Character * chara)
 void levelUp(Character * chara)
 {
     if(chara->isPlayer == 1) printf("-----LEVEL UP!-----\n");
-    else printf("-----THE ENEMY HAS LEVELED UP!!!-----\nThey have gained some stats, be careful...\n");
+    else printf("-----THE ENEMY HAS LEVELED UP!!!-----\n");
 
     chara->level++;
     printf("Level %i -> %i\n", chara->level-1, chara->level);
@@ -473,6 +484,7 @@ void levelUp(Character * chara)
         if(chara->isPlayer == 1) printf("Res +1\n");
     }
     if(chara->isPlayer == 1) printf("-------------------\n");
+    else printf("They have gained some power, be careful...\n");
 
     chara->expToLvlUp+=5;
 }
@@ -548,7 +560,7 @@ int playerPhase(Character * chara1, Character * chara2, int score)
     {
         printf("1. Attack\n");
         printf("2. Defend\n");
-        printf("3. Show Player Info (Does not count as a turn)\n");
+        printf("3. Show Player Info (Does not count as an action)\n");
         printf("4. Check enemy info\n");
         scanf("%i", &op);
         switch(op)
@@ -644,13 +656,16 @@ void saveScore(Character * chara, int score)
 
 void play()
 {
-    printf("weapons.csv read successfully\n");
     Character * playerChara = createChara();
     playerChara->isPlayer = 1;
     int state = 1, turn, room = 0, floor = 1, score = 0, chara2Level;
 
     printf("\nYour character's (randomly generated) stats:\n");
     printChara(playerChara);
+    printf("Giving you a weapon.\n");
+    giveWeapon(playerChara, getRanWeapon(1));
+    playerChara->currentWeapon = 1;
+    printf("You got a %s!\n", playerChara->weapons[playerChara->currentWeapon]->name);
 
     Character * enemyChara;
 
@@ -783,6 +798,7 @@ int main()
     srand(time(NULL));
     int op = 0;
     readWeapons();
+    printf("weapons.csv read successfully\n");
     printf("------------------Start------------------\n");
 
     while(op != 4)
