@@ -57,6 +57,8 @@ typedef struct
 
 //Global Variable
 WeaponListNode * weaponsList;
+FILE * racesFile;
+FILE * highScoresFile;
 
 //generates a random Integer number within a range
 int randIntLimits(int lower, int upper)
@@ -152,19 +154,14 @@ Stats * genRanCharStats(int level)
 const char * getRaceString(int nInt)
 {
     char l[1024];
-    FILE * file = fopen("races.csv", "r");
-    if(file == NULL)
-    {
-        printf("ERROR: The file [races.csv] is missing.");
-        exit(1);
-    }
+    fseek(racesFile, 0, SEEK_SET);
 
-    if(fgets(l, 1024, file) == NULL || getCSVField(l, nInt) == NULL)
+    if(fgets(l, 1024, racesFile) == NULL || getCSVField(l, nInt) == NULL)
     {
-        fclose(file);
+        fclose(racesFile);
         return "Unkown";
     }
-    fclose(file);
+    fclose(racesFile);
     return getCSVField(l, nInt);
 }
 
@@ -251,12 +248,17 @@ Weapon * createWeapon(char * name, char * description, int rarity, int durabilit
 int getRanWpnRarity()
 {
     //dependiendo del nivel tiene mas o menos chance de cada rareza
-    int n = randIntLimits(0,5);
+    int n = randIntLimits(1,5);
     return n;
 }
 
 Weapon * getRanWeapon(int rarity)
 {
+    if(weaponsList[rarity-1].amount < 1)
+    {
+        printf("There are no weapons of rarity [%s] on [weapons.csv], please add at least one.", getRarityString(rarity));
+        exit(1);
+    }
     Weapon * weapon = firstList(weaponsList[rarity-1].list);
     if(weapon == NULL)
     {
@@ -269,6 +271,7 @@ Weapon * getRanWeapon(int rarity)
         weapon = nextList(weaponsList[rarity-1].list);
         if(weapon == NULL)
         {
+            printf("The weapon n° %i doesn't exist, going to the last one\n", j);
             weapon = prevList(weaponsList[rarity-1].list);
             break;
         }
@@ -292,69 +295,6 @@ void chooseNextAvailableWeapon(Character * chara)
     int i = 3;
     while(chara->weapons[i] == NULL) i--;
     chara->currentWeapon = i;
-}
-
-void readWeapons()
-{
-    printf("Opening file\n");
-    FILE * f = fopen("weapons.csv", "r");
-    if(f == NULL)
-    {
-        printf("ERROR: The file [weapons.csv] is missing.");
-        exit(1);
-    }
-    printf("mallocing List**\n");
-    weaponsList = (WeaponListNode *) malloc (5*sizeof(WeaponListNode));
-    int i;
-    printf("creating the 4 lists\n");
-    for(i = 0 ; i < 6 ; i++)
-    {
-        weaponsList[i].list = createList();
-        if(weaponsList[i].list == NULL)
-        {
-            printf("There was an error while reading the [weapons.csv] file.");
-            exit(1);
-        }
-        weaponsList[i].amount = 0;
-    }
-    char l[1024];
-    i = 0;
-    while(fgets(l, 1023, f) != NULL)
-    {
-        if(i == 0) i = 1;
-        else
-        {
-            Weapon * newWeapon = (Weapon *) malloc (sizeof(Weapon));
-            if(newWeapon == NULL)
-            {
-                printf("There was an error while reading the [weapons.csv] file.");
-                exit(1);
-            }
-            strcpy(newWeapon->name, getCSVField(l, 0));
-            strcpy(newWeapon->description, getCSVField(l, 1));
-            newWeapon->rarity = atoi(getCSVField(l,2));
-            newWeapon->maxDurability = atoi(getCSVField(l,3));
-            newWeapon->currentDurability = atoi(getCSVField(l,3));
-            newWeapon->effectiveness = atoi(getCSVField(l,4));
-            newWeapon->damageType = atoi(getCSVField(l,5));            
-            newWeapon->stats = (Stats *) malloc (sizeof(Stats));
-            if(newWeapon->stats == NULL)
-            {
-                printf("There was an error while reading the [weapons.csv] file.");
-                exit(1);
-            }
-            newWeapon->stats->hp = atoi(getCSVField(l,6));
-            newWeapon->stats->atk = atoi(getCSVField(l,7));
-            newWeapon->stats->spd = atoi(getCSVField(l,8));
-            newWeapon->stats->def = atoi(getCSVField(l,9));
-            newWeapon->stats->res = atoi(getCSVField(l,10));
-
-            //printWeapon(newWeapon);
-            pushBack(weaponsList[newWeapon->rarity-1].list, newWeapon);
-            weaponsList[newWeapon->rarity-1].amount++;
-        }
-    }
-    fclose(f);
 }
 
 // Generates a character with the stats
@@ -381,19 +321,15 @@ Character * generateChara(Stats * stats, int level, char * name, int race)
 Character * genRanChara(int level)
 {
     char l[4];
-    FILE * file = fopen("races.csv", "r");
-    if(file == NULL)
-    {
-        printf("ERROR: The file [races.csv] is missing.");
-        exit(1);
-    }
-    if(fgets(l, 3, file) == NULL) strcpy(l, "0");
-    fclose(file);
+    fseek(racesFile, 0, SEEK_SET);
+    if(fgets(l, 3, racesFile) == NULL) strcpy(l, "0");
     int race = randIntLimits(1, atoi(getCSVField(l, 0)));
+    printf("generateChara()\n");
     Character * newChara = generateChara(genRanCharStats(level), level, (char*)getRaceString(race), race);
     newChara->experience = randIntLimits(0, newChara->expToLvlUp-1);
     giveWeapon(newChara, getRanWeapon(getRanWpnRarity()));
     chooseNextAvailableWeapon(newChara);
+    printf("Enemy got a %s!\n", newChara->weapons[newChara->currentWeapon]->name);
     return newChara;
 }
 
@@ -770,15 +706,9 @@ void play()
 
 void showHighScores()
 {
+    fseek(highScoresFile, 0, SEEK_SET);
     char line[25];
-    FILE * file = fopen("highscores.csv", "r");
-    if(file == NULL)
-    {
-        printf("ERROR: The file [highscores.csv] is missing.\n");
-        exit(1);
-    }
-    
-    if(fgets(line, 1023, file) == NULL)
+    if(fgets(line, 1023, highScoresFile) == NULL)
     {
         printf("There are no HighScores yet, go and be the first!\n");
         return;
@@ -788,17 +718,108 @@ void showHighScores()
 
     do{
         printf("%-24s %19i\n", getCSVField(line, 0), atoi(getCSVField(line, 1)));
-    }while(fgets(line, 1023, file) != NULL);
-    fclose(file);
+    }while(fgets(line, 1023, highScoresFile) != NULL);
+    fclose(highScoresFile);
     pressEnterToContinue();
+}
+
+void readWeapons()
+{
+    FILE * f = fopen("weapons.csv", "r");
+    if(f == NULL)
+    {
+        printf("ERROR: The file [weapons.csv] is missing.");
+        exit(1);
+    }
+    printf("mallocing weaponsList**\n");
+    weaponsList = (WeaponListNode *) malloc (5*sizeof(WeaponListNode));
+    int i;
+    printf("creating the 4 lists\n");
+    for(i = 0 ; i < 6 ; i++)
+    {
+        weaponsList[i].list = createList();
+        if(weaponsList[i].list == NULL)
+        {
+            printf("There was an error while reading the [weapons.csv] file.");
+            exit(1);
+        }
+        weaponsList[i].amount = 0;
+    }
+    char l[1024];
+    i = 0;
+    while(fgets(l, 1023, f) != NULL)
+    {
+        if(i == 0) i = 1;
+        else
+        {
+            Weapon * newWeapon = (Weapon *) malloc (sizeof(Weapon));
+            if(newWeapon == NULL)
+            {
+                printf("There was an error while reading the [weapons.csv] file.");
+                exit(1);
+            }
+            strcpy(newWeapon->name, getCSVField(l, 0));
+            strcpy(newWeapon->description, getCSVField(l, 1));
+            newWeapon->rarity = atoi(getCSVField(l,2));
+            newWeapon->maxDurability = atoi(getCSVField(l,3));
+            newWeapon->currentDurability = atoi(getCSVField(l,3));
+            newWeapon->effectiveness = atoi(getCSVField(l,4));
+            newWeapon->damageType = atoi(getCSVField(l,5));            
+            newWeapon->stats = (Stats *) malloc (sizeof(Stats));
+            if(newWeapon->stats == NULL)
+            {
+                printf("There was an error while reading the [weapons.csv] file.");
+                exit(1);
+            }
+            newWeapon->stats->hp = atoi(getCSVField(l,6));
+            newWeapon->stats->atk = atoi(getCSVField(l,7));
+            newWeapon->stats->spd = atoi(getCSVField(l,8));
+            newWeapon->stats->def = atoi(getCSVField(l,9));
+            newWeapon->stats->res = atoi(getCSVField(l,10));
+
+            //printWeapon(newWeapon);
+            pushBack(weaponsList[newWeapon->rarity-1].list, newWeapon);
+            weaponsList[newWeapon->rarity-1].amount++;
+        }
+    }
+    fclose(f);
+}
+
+void readRaces()
+{
+    racesFile = fopen("races.csv", "r");
+    if(racesFile == NULL)
+    {
+        printf("ERROR: The file [races.csv] is missing.");
+        exit(1);
+    }
+}
+
+void readHighscores()
+{
+    highScoresFile = fopen("highscores.csv", "r");
+    if(highScoresFile == NULL)
+    {
+        printf("ERROR: The file [highscores.csv] is missing.\n");
+        exit(1);
+    }
+}
+
+void readAllFiles()
+{
+    readWeapons();
+    printf("weapons.csv read successfully\n");
+    readRaces();
+    printf("races.csv read successfully\n");
+    readHighscores();
+    printf("highscores.csv read successfully\n");
 }
 
 int main()
 {
     srand(time(NULL));
     int op = 0;
-    readWeapons();
-    printf("weapons.csv read successfully\n");
+    readAllFiles();
     printf("------------------Start------------------\n");
 
     while(op != 4)
