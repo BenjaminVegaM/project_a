@@ -792,7 +792,7 @@ void readWeapons()
     fclose(f);
 }
 
-void readRaces()
+void openRaces()
 {
     racesFile = fopen("races.csv", "r");
     if(racesFile == NULL)
@@ -802,7 +802,7 @@ void readRaces()
     }
 }
 
-void readHighscores()
+void openHighscores()
 {
     highScoresFile = fopen("highscores.csv", "r");
     if(highScoresFile == NULL)
@@ -812,13 +812,13 @@ void readHighscores()
     }
 }
 
-void readAllFiles()
+void openAllFiles()
 {
     readWeapons();
     printf("weapons.csv read successfully\n");
-    readRaces();
+    openRaces();
     printf("races.csv read successfully\n");
-    readHighscores();
+    openHighscores();
     printf("highscores.csv read successfully\n");
 }
 
@@ -826,7 +826,7 @@ int main()
 {
     srand(time(NULL));
     int op = 0;
-    readAllFiles();
+    openAllFiles();
     printf("------------------Start------------------\n");
 
     while(op != 4)

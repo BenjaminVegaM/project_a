@@ -92,10 +92,8 @@ float randFloatLimits(int lower, int upper)
 //Función para tomar un string de una coordenada específica de un archivo .csv
 const char *getCSVField (char * tmp, int k) {
 
-    int open_mark = 0;
-    char* ret=(char*) malloc (100*sizeof(char));
-    int ini_i=0, i=0;
-    int j=0;
+    int open_mark = 0, ini_i=0, i=0, j=0;
+    char* ret=(char*) malloc (201*sizeof(char));
     while(tmp[i]!='\0' && tmp[i]!='\n'){
 
         if(tmp[i]== '\"'){
@@ -413,10 +411,10 @@ Character * createChara()
 
 void printShortChara(Character * chara)
 {
-    printf("[%s]\n", chara->name);
+    printf("[%s]", chara->name);
+    printf(" HP[%i/%i]\n", chara->currentHP, chara->stats->hp);
     printf("Lvl [%i]\n", chara->level);
     printf("Exp [%i/%i]\n", chara->experience, chara->expToLvlUp);
-    printf("HP  [%i/%i]\n", chara->currentHP, chara->stats->hp);
 }
 
 void printChara(Character * chara)
@@ -433,6 +431,52 @@ void printChara(Character * chara)
     printf("    Res [%i]\n", chara->stats->res);
 }
 
+void randomEvent(Character * chara)
+{
+    int op = randIntLimits(1,100);
+    if(op > 90)
+    {
+
+    }
+    else if(op>80)
+    {
+
+    }
+    else if(op>70)
+    {
+        
+    }
+    else if(op>60)
+    {
+        
+    }
+    else if(op>50)
+    {
+        
+    }
+    else if(op>40)
+    {
+        
+    }
+    else if(op>30)
+    {
+        
+    }
+    else if(op>20)
+    {
+        
+    }
+    else if(op>10)
+    {
+        
+    }
+    else if(op>0)
+    {
+        
+    }
+
+}
+
 void lowerWeaponDurability(Character * chara)
 {
     if(chara->currentWeapon != 0)
@@ -444,7 +488,7 @@ void lowerWeaponDurability(Character * chara)
             free(chara->weapons[chara->currentWeapon]);
             chara->weapons[chara->currentWeapon] = NULL;
             chooseNextAvailableWeapon(chara);
-            if(chara->currentWeapon == 0) printf("Now they are unarmed!");
+            if(chara->currentWeapon == 0) printf("Now they are unarmed!\n");
         }
     }
 }
@@ -501,8 +545,7 @@ void levelUp(Character * chara)
 void giveExperience(Character * chara, int exp)
 {
     chara->experience += exp;
-    printf("%s +%i exp\n", chara->name, exp);
-    printf("Exp [%i/%i]\n", chara->experience, chara->expToLvlUp);
+    printf("%s gained %i exp\n", chara->name, exp);
     if(chara->experience > chara->expToLvlUp)
     {
         chara->experience-=chara->expToLvlUp;
@@ -512,14 +555,20 @@ void giveExperience(Character * chara, int exp)
 
 int damageCalc(Character * attacker, Character * defender)
 {
-    int dmgReduction, damageDealt;
-    switch (attacker->weapons[attacker->currentWeapon]->damageType)
+    int totalAtk, dmgReduction, damageDealt;
+    totalAtk = attacker->stats->atk + attacker->weapons[attacker->currentWeapon]->stats->atk;
+    if(attacker->weapons[attacker->currentWeapon]->effectiveness == defender->race)
+    {
+        printf("The weapon is super effective!\n");
+        totalAtk*=1.5;
+    }
+    switch(attacker->weapons[attacker->currentWeapon]->damageType)
     {
         case 0: dmgReduction = 0;
         case 1: dmgReduction = defender->stats->def; break;
         case 2: dmgReduction = defender->stats->res; break;
     }
-    damageDealt = fmax(1, attacker->stats->atk + attacker->weapons[attacker->currentWeapon]->stats->atk - dmgReduction);
+    damageDealt = fmax(1, totalAtk - dmgReduction);
     if(defender->state == 2)
     {
         damageDealt = damageDealt/2;
@@ -560,6 +609,7 @@ int attack(Character * attacker, Character * defender)
 
     if(defender->currentHP == 0)
     {
+        system("cls");
         printf("%s has been defeated!\n", defender->name);
         giveExperience(attacker, defender->level*6);
         pressEnterToContinue();
@@ -603,39 +653,50 @@ int playerPhase(Character * chara1, Character * chara2, int score, RunManager * 
                         else break;
                     }
                 }
+                system("cls");
                 printf("%s attacks with the %s!\n", chara1->name, chara1->weapons[chara1->currentWeapon]->name);
                 chara1->state = 1;
                 score+=2;
+                getchar();
                 if(attack(chara1, chara2) == 1) return 1;
-                pressEnterToContinue();
+                system("cls");
                 break;
             }
             case 2:
             {
+                system("cls");
                 printf("%s is defending the next attack!\n", chara1->name);
                 chara1->state = 2;
                 score++;
+                getchar();
                 pressEnterToContinue();
+                system("cls");
                 break;
             }
             case 3:
             {
+                system("cls");
                 printf("----------Your current status----------\n");
                 printChara(chara1);
                 printf("------Your Weapons and Inventory-------\n");
                 showWeapons(chara1);
                 
+                getchar();
                 pressEnterToContinue();
+                system("cls");
                 break;
             }
             case 4:
             {
+                system("cls");
                 printf("------------Enemy's status------------\n");
                 printChara(chara2);
                 printf("-----Enemy's Weapon and Inventory-----\n");
                 showWeapons(chara2);
 
+                getchar();
                 pressEnterToContinue();
+                system("cls");
                 break;
             }
         }
@@ -647,6 +708,8 @@ int aiPhase(Character * chara1, Character * chara2)
 {
     int op;
     printf("-----Enemy turn!-----\n");
+    pressEnterToContinue();
+    system("cls");
     int chance;
     if(chara1->currentHP >= chara1->currentHP/2) op = 1;
     else
@@ -671,11 +734,23 @@ int aiPhase(Character * chara1, Character * chara2)
         }
     }
     pressEnterToContinue();
+    system("cls");
 }
 
-void saveScore(Character * chara, int score)
+void saveScore(Character * chara, RunManager * runManager)
 {
+    highScoresFile = fopen("highscores.csv", "a");
+    if(highScoresFile == NULL)
+    {
+        printf("ERROR: The file [highscores.csv] is corrupted.\n");
+        pressEnterToContinue();
+        return;
+    }
+    int score = runManager->score + (runManager->room) + (runManager->floor*5);
     printf("Your score with %s was [%i]\n", chara->name, score);
+    fseek(highScoresFile, 0, SEEK_END);
+    fprintf(highScoresFile, "\"%s\",%i\n", chara->name, score);
+    fclose(highScoresFile);
 }
 
 void play(RunManager * runManager)
@@ -687,6 +762,7 @@ void play(RunManager * runManager)
     runManager->turn = 0;
 
     system("cls");
+    pressEnterToContinue();
     printf("\nYour character's (randomly generated) stats:\n");
     printChara(playerChara);
     giveWeapon(playerChara, getRanWeapon(1));
@@ -719,7 +795,6 @@ void play(RunManager * runManager)
                 chara2Level = fmax(1,(int)((randFloatLimits(80, 120)/100)*playerChara->level));
 
                 enemyChara = genRanChara(chara2Level);
-                printChara(enemyChara);
 
                 //Entering the Combating state
                 state = 2;
@@ -727,6 +802,7 @@ void play(RunManager * runManager)
             }
             case 2:
             {
+                pressEnterToContinue();
                 system("cls");
                 runManager->turn++;
                 printf("-----Turn %i-----\n", runManager->turn);
@@ -783,7 +859,6 @@ void play(RunManager * runManager)
                 printShortChara(playerChara);
                 state = 1;
                 runManager->turn = 0;
-                pressEnterToContinue();
                 break;
             }
             case 4:
@@ -797,7 +872,7 @@ void play(RunManager * runManager)
                 system("cls");
                 printf("Game over");
                 pressEnterToContinue();
-                saveScore(playerChara, runManager->score);
+                saveScore(playerChara, runManager);
                 state = 0;
                 return;
             }
@@ -809,19 +884,31 @@ void play(RunManager * runManager)
 
 void showHighScores()
 {
+    highScoresFile = fopen("highscores.csv", "r");
+    if(highScoresFile == NULL)
+    {
+        printf("ERROR: The file [highscores.csv] is missing.\n");
+        return;
+    }
     fseek(highScoresFile, 0, SEEK_SET);
-    char line[25];
-    if(fgets(line, 24, highScoresFile) == NULL)
+    char l[1024];
+    if(fgets(l, 1023, highScoresFile) == NULL)
     {
         printf("There are no HighScores yet, go and be the first!\n");
         return;
     }
     
+    char n[201];
+    int s;
     printf("-----------------HIGHSCORES-----------------\n");
-
     do{
-        printf("%-24s %19i\n", getCSVField(line, 0), atoi(getCSVField(line, 1)));
-    }while(fgets(line, 24, highScoresFile) != NULL);
+        printf("%s\n", l);
+        strcpy(n, getCSVField(l, 0));
+        s = atoi(getCSVField(l, 1));
+        printf("%s\n%i\n", n, s);
+        //printf("%-25s %18i\n", n, s);
+    }while(fgets(l, 24, highScoresFile) != NULL);
+    fclose(highScoresFile);
 }
 
 void readWeapons()
@@ -886,7 +973,7 @@ void readWeapons()
     fclose(f);
 }
 
-void readRaces()
+void openRaces()
 {
     racesFile = (RacesFile *) malloc (sizeof(RacesFile));
     racesFile->file = fopen("races.csv", "r");
@@ -909,23 +996,12 @@ void readRaces()
     else printf("There was an error while reading the file [races.csv]");
 }
 
-void readHighscores()
-{
-    highScoresFile = fopen("highscores.csv", "r");
-    if(highScoresFile == NULL)
-    {
-        printf("ERROR: The file [highscores.csv] is missing.\n");
-        exit(1);
-    }
-}
-
-void readAllFiles()
+void openAllFiles()
 {
     readWeapons();
     printf("[weapons.csv] read successfully\n");
-    readRaces();
+    openRaces();
     printf("[races.csv] read successfully\n");
-    readHighscores();
     printf("[highscores.csv] read successfully\n");
 }
 
@@ -933,7 +1009,7 @@ int main()
 {
     srand(time(NULL));
     int op = 0, c;
-    readAllFiles();
+    openAllFiles();
     printf("------------------Start------------------\n");
 
     while(op != 4)
