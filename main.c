@@ -340,11 +340,31 @@ Weapon * getRanWeapon(int rarity)
 void giveWeapon(Character * chara, Weapon * weapon)
 {
     int b = 1;
-    while(b < 3 && chara->weapons[b] != NULL)
+    while(b < 4 && chara->weapons[b] != NULL) b++;
+    if(b < 4) chara->weapons[b] = weapon;
+    else
     {
-        b++;
+        if(chara->isPlayer == 1)
+        {
+            int w;
+            getchar();
+            printf("You don't have more space for weapons.\n");
+            printf("Choose one to throw away.\n");
+            for(w = 1 ; w < 4 ; w++) printf("%i. %s\n", w, chara->weapons[w]->name);
+            printf("4. (New)%s", weapon->name);
+            do
+            {
+                scanf("%i", &w);
+            }while(w < 1 || w > 4);
+            if(w == 4) printf("You left behind the %s.\nMaybe it wasn't that good.\n", weapon->name);
+            else
+            {
+                printf("You threw the %s.\nJust don't regret it later.\n", chara->weapons[w]->name);
+                free(chara->weapons[w]);
+                chara->weapons[w] = weapon;
+            }
+        }
     }
-    chara->weapons[b] = weapon;
 }
 
 void chooseNextAvailableWeapon(Character * chara)
@@ -431,12 +451,132 @@ void printChara(Character * chara)
     printf("    Res [%i]\n", chara->stats->res);
 }
 
+void dialogueEvent()
+{
+    int r = randIntLimits(0,3);
+    switch(r)
+    {
+        case 0:
+        {
+            getchar();
+            printf("On your way to the next room you found a chest!\n");
+            getchar();
+            printf("You opened it but nothing was inside...\n");
+            getchar();
+            printf("Maybe someone else openned it before you.\n");
+            getchar();
+            printf("You leave the room with a frown on the face.\n");
+            pressEnterToContinue();
+        }
+        case 1:
+        {
+            getchar();
+            printf("Nothing interesting happened on your way to the next room...\n");
+            pressEnterToContinue();
+        }
+        case 2:
+        {
+            getchar();
+            printf("\"Good job little warrior.\"\n\"You may have won this battle, but there are many more next.\"\n\"Continue if you have a death wish, or retreat while you can... if you can...\"\n");
+            pressEnterToContinue();
+        }
+        case 3:
+        {
+            getchar();
+            printf("a\n");
+            pressEnterToContinue();
+        }
+    }
+}
+
+void itemEvent()
+{
+
+}
+
+void weaponEvent(Character * chara, RunManager * runManager)
+{
+    getchar();
+    printf("After defeating the enemy you notice a chest!\n");
+    getchar();
+    printf("You open it and a weapon is inside it!\n");
+    Weapon * wpn = getRanWeapon(fmin(5, runManager->floor));
+    getchar();
+    printf("You found a %s!\n", wpn->name);
+    giveWeapon(chara, wpn);
+    pressEnterToContinue();
+}
+
+void trapEvent(Character * chara, RunManager * runManager)
+{
+    int r = randIntLimits(0,5);
+    int i;
+    switch(r)
+    {
+        case 0:
+        {
+            i = randIntLimits(chara->stats->hp/3, chara->stats->hp/2);
+            chara->currentHP = fmax(1, (chara->currentHP - i));
+            getchar();
+            printf("On your way to the next room you found a chest!\n");
+            getchar();
+            printf("You opened it but nothing was inside...\n");
+            getchar();
+            printf("WAIT IT HAS FANGS\n");
+            getchar();
+            printf("IT'S TRYING TO EAT YOU\n");
+            getchar();
+            printf("...\n");
+            getchar();
+            printf("You barely escape alive...\n");
+            getchar();
+            printf("You received %i damage from it!\n", i);
+            getchar();
+            printf("You should stab the next chest before opening it.\n");
+            getchar();
+            printf("Don't forget it! Or you already did?\n");
+            pressEnterToContinue();
+        }
+        case 1:
+        {
+            i = randIntLimits(chara->stats->def/4, chara->stats->def/3);
+            chara->stats->def = fmax(0, (chara->stats->def - i));
+            getchar();
+            printf("You stepped on a trap!\n");
+            getchar();
+            printf("You got hit by... slime?\n");
+            getchar();
+            printf("It's desintegrating your clothes!\n");
+            getchar();
+            printf("Your Defense got reduced by %i!!!\n", i);
+            pressEnterToContinue();
+        }
+        case 2:
+        {
+            getchar();
+            printf("Entering the next room, you feel different...\n");
+            getchar();
+            printf("Weaker...\n");
+            getchar();
+            printf("Your resistance feels lower...\n");
+            chara->stats->res = fmax(0, (chara->stats->res - randIntLimits(chara->stats->res/4, chara->stats->res/3)));
+            pressEnterToContinue();
+        }
+        case 3:
+        {
+            getchar();
+            printf("a\n");
+            pressEnterToContinue();
+        }
+    }
+}
+
 void randomEvent(Character * chara)
 {
     int op = randIntLimits(1,100);
     if(op > 90)
     {
-
+        
     }
     else if(op>80)
     {
@@ -902,11 +1042,9 @@ void showHighScores()
     int s;
     printf("-----------------HIGHSCORES-----------------\n");
     do{
-        printf("%s\n", l);
         strcpy(n, getCSVField(l, 0));
         s = atoi(getCSVField(l, 1));
-        printf("%s\n%i\n", n, s);
-        //printf("%-25s %18i\n", n, s);
+        printf("%-25s %18i\n", n, s);
     }while(fgets(l, 24, highScoresFile) != NULL);
     fclose(highScoresFile);
 }
