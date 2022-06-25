@@ -451,7 +451,7 @@ void printChara(Character * chara)
     printf("    Res [%i]\n", chara->stats->res);
 }
 
-void dialogueEvent()
+void dialogueEvent(Character * chara, RunManager * runManager)
 {
     int r = randIntLimits(0,3);
     switch(r)
@@ -467,31 +467,36 @@ void dialogueEvent()
             getchar();
             printf("You leave the room with a frown on the face.\n");
             pressEnterToContinue();
+            break;
         }
         case 1:
         {
             getchar();
             printf("Nothing interesting happened on your way to the next room...\n");
             pressEnterToContinue();
+            break;
         }
         case 2:
         {
             getchar();
             printf("\"Good job little warrior.\"\n\"You may have won this battle, but there are many more next.\"\n\"Continue if you have a death wish, or retreat while you can... if you can...\"\n");
             pressEnterToContinue();
+            break;
         }
         case 3:
         {
             getchar();
             printf("a\n");
             pressEnterToContinue();
+            break;
         }
     }
 }
 
-void itemEvent()
+void itemEvent(Character * chara, RunManager * runManager)
 {
-
+    printf("There should be an Item here.\n");
+    pressEnterToContinue();
 }
 
 void weaponEvent(Character * chara, RunManager * runManager)
@@ -509,7 +514,7 @@ void weaponEvent(Character * chara, RunManager * runManager)
 
 void trapEvent(Character * chara, RunManager * runManager)
 {
-    int r = randIntLimits(0,5);
+    int r = randIntLimits(0,4);
     int i;
     switch(r)
     {
@@ -536,6 +541,7 @@ void trapEvent(Character * chara, RunManager * runManager)
             getchar();
             printf("Don't forget it! Or you already did?\n");
             pressEnterToContinue();
+            break;
         }
         case 1:
         {
@@ -550,71 +556,77 @@ void trapEvent(Character * chara, RunManager * runManager)
             getchar();
             printf("Your Defense got reduced by %i!!!\n", i);
             pressEnterToContinue();
+            break;
         }
         case 2:
         {
+            i = randIntLimits(chara->stats->res/4, chara->stats->res/3);
+            chara->stats->res = fmax(0, (chara->stats->res - i));
             getchar();
             printf("Entering the next room, you feel different...\n");
             getchar();
             printf("Weaker...\n");
             getchar();
             printf("Your resistance feels lower...\n");
-            chara->stats->res = fmax(0, (chara->stats->res - randIntLimits(chara->stats->res/4, chara->stats->res/3)));
+            getchar();
+            printf("It got reduced by %i!!!\n", i);
             pressEnterToContinue();
+            break;
         }
         case 3:
         {
+            i = randIntLimits(chara->stats->spd/4, chara->stats->spd/3);
+            chara->stats->spd = fmax(0, (chara->stats->spd - i));
             getchar();
-            printf("a\n");
+            printf("The gravity in from this room is stronger.\n");
+            getchar();
+            printf("Your body feels heavier from now on, making you slower.\n");
+            getchar();
+            printf("You are slowed by %i!!!\n", i);
+            pressEnterToContinue();
+            break;
+        }
+        case 4:
+        {
+            if(runManager->floor == 1)
+            {
+                runManager->room = 0;
+            }
+            else
+            {
+                i = (randIntLimits(1,5));
+                if(runManager->room < i) runManager->floor--;
+                runManager->room = i;
+            }
+            getchar();
+            printf("You got lost???.\n");
+            getchar();
+            printf("You went back some rooms and now a new enemy is there, blocking your path...\n");
             pressEnterToContinue();
         }
+        //case 4: lost a weapon (create a function for this and put it on the "if inventory full")
     }
 }
 
-void randomEvent(Character * chara)
+void randomEvent(Character * chara, RunManager * runManager)
 {
     int op = randIntLimits(1,100);
-    if(op > 90)
+    if(op > 70)
     {
-        
-    }
-    else if(op>80)
-    {
-
-    }
-    else if(op>70)
-    {
-        
-    }
-    else if(op>60)
-    {
-        
-    }
-    else if(op>50)
-    {
-        
+        dialogueEvent(chara, runManager);
     }
     else if(op>40)
     {
-        
+        weaponEvent(chara, runManager);
     }
-    else if(op>30)
+    else if(op>15)
     {
-        
-    }
-    else if(op>20)
-    {
-        
-    }
-    else if(op>10)
-    {
-        
+        itemEvent(chara, runManager);
     }
     else if(op>0)
     {
-        
+        trapEvent(chara, runManager);
     }
-
 }
 
 void lowerWeaponDurability(Character * chara)
@@ -818,7 +830,7 @@ int playerPhase(Character * chara1, Character * chara2, int score, RunManager * 
                 system("cls");
                 printf("----------Your current status----------\n");
                 printChara(chara1);
-                printf("------Your Weapons and Inventory-------\n");
+                printf("\n------Your Weapons and Inventory-------\n");
                 showWeapons(chara1);
                 
                 getchar();
@@ -831,7 +843,7 @@ int playerPhase(Character * chara1, Character * chara2, int score, RunManager * 
                 system("cls");
                 printf("------------Enemy's status------------\n");
                 printChara(chara2);
-                printf("-----Enemy's Weapon and Inventory-----\n");
+                printf("\n-----Enemy's Weapon and Inventory-----\n");
                 showWeapons(chara2);
 
                 getchar();
@@ -993,6 +1005,8 @@ void play(RunManager * runManager)
             }
             case 3:
             {
+                system("cls");
+                randomEvent(playerChara, runManager);
                 system("cls");
                 printf("-----After combat-----\n");
                 printf("Your current state:\n");
