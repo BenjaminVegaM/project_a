@@ -3,10 +3,10 @@
 
 typedef struct TreeMap TreeMap;
 
-typedef struct PairTree {
+typedef struct Pair {
      void * key;
      void * value;
-} PairTree;
+} Pair;
 
 TreeMap * createTreeMap(int (*lower_than_int) (void* key1, void* key2));
 
@@ -14,12 +14,12 @@ void insertTreeMap(TreeMap * tree, void* key, void * value);
 
 void eraseTreeMap(TreeMap * tree, void* key);
 
-PairTree * searchTreeMap(TreeMap * tree, void* key);
+Pair * searchTreeMap(TreeMap * tree, void* key);
 
-PairTree * upperBound(TreeMap * tree, void* key);
+Pair * upperBound(TreeMap * tree, void* key);
 
-PairTree * firstTreeMap(TreeMap * tree);
+Pair * firstTreeMap(TreeMap * tree);
 
-PairTree * nextTreeMap(TreeMap * tree);
+Pair * nextTreeMap(TreeMap * tree);
 
 #endif /* TREEMAP_h */

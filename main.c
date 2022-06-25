@@ -5,73 +5,84 @@
 #include <math.h>
 #include <time.h>
 #include "list.h"
+#include "treemap.h"
 
 typedef struct
 {
-    int hp;
-    int atk;
-    int spd;
-    int def;
-    int res;
+    int hp; //Health Points
+    int atk; //Potential Damage
+    int spd; //Speed, the fastest will act first
+    int def; //Reduces Physical Damage Received
+    int res; //Reduces Magical Damage Received
 } Stats;
 
 typedef struct
 {
-    char name[40];
-    char description[200];
-    int rarity;
-    int currentDurability;
-    int maxDurability;
-    int effectiveness; //same number as race
-    int damageType;
-    Stats * stats; //increase in char stats
+    char name[31]; //Name of the Item (also used as Key)
+    char description[100]; //Description of the Item
+    int type; //0 Decorative, 1 Self Healing, 2 Stats Increase
+    int uses; //Amount of times it can be used
+    int value; //Amount of healing/damage/stats/etc it gives
+} Item;
+
+typedef struct
+{
+    char name[31]; //Name of the Weapon
+    char description[100]; //Description of the Item
+    int rarity; //Rarity of the Weapon
+    int currentDurability; //Amount of times left it can be used
+    int maxDurability; //Original amount of times it can be used
+    int effectiveness; //If it's the same as the oponent's race, will deal more damage
+    int damageType; //1 Physical, 2 Magical, 0 True Damage
+    Stats * stats; //Increase to the Character's Stats
 } Weapon;
 
 typedef struct
 {
     int isPlayer; //1 Player, 0 otherwise
-    char name[25];
-    int race; //a number that represents the race
-    int level;
-    int experience;
-    int expToLvlUp;
-    int state;
-    int currentHP;
-    Stats * stats;
-    Weapon * weapons[4];
-    int currentWeapon;
+    char name[25]; //Name of the Character
+    int race; //A number that represents the race
+    int level; //Current Level of the character
+    int experience; //Current Experience of the Character
+    int expToLvlUp; //Experience necesary to level up
+    int state; //State of the character in combat (0 Normal, 1 Attacking, 2 Defending, 3 Stunned, 4 Sleeping)
+    int currentHP; //Current Health Points of the Character
+    Stats * stats; //Stats of the Character
+    Weapon * weapons[4]; //Inventory of Weapons of the Character
+    int currentWeapon; //Current Selected Weapon of the Character
+    TreeMap * items; //Inventory of Items of the Character
 } Character;
 
 typedef struct 
 {
-    Weapon * weapon;
-    int id;
-    int used;//If it's an epic or higher rarity weapon, there can only be one of those per run. 0 if they are infinite, 1 if they are limited and 2 if they already appeared.
-} WeaponNode;
+    List * list; //The List of Weapons Available
+    int amount; //The amount of weapons available
+} WeaponsListNode;
 
 typedef struct 
 {
-    List * list;
-    int amount;
-} WeaponListNode;
+    List * list; //The List of Items Available
+    int amount; //The amount of items available
+} ItemsListNode;
 
 typedef struct
 {
-    FILE * file;
-    int amount;
+    FILE * file; //The File containning the Races available
+    int amount; //The amount of races available
 }RacesFile;
 
 typedef struct
 {
-    int floor;
-    int room;
-    int turn;
-    int score;
+    int floor; //Current Floor of the Run
+    int room; //Current Room of the Floor
+    int turn; //Current Turn of the current Battle
+    int score; //Score of the Run
 }RunManager;
 
 
-//Global Variable
-WeaponListNode * weaponsList;
+//Global Variables
+ItemsListNode * itemsList;
+WeaponsListNode * weaponsList;
 RacesFile * racesFile;
 FILE * highScoresFile;
 
@@ -127,6 +138,15 @@ const char *getCSVField (char * tmp, int k) {
 
 
     return NULL;
+}
+
+//For TreeMap
+int lowerThanInt(void* key1, void* key2)
+{
+    int * k1 = (int*) key1;
+    int * k2 = (int*) key2;
+    if(k1 < k2) return 1;
+    return 0;
 }
 
 //Funcion que requiere presionar enter para proseguir, sirve para generar una pausa.
@@ -215,6 +235,8 @@ const char * getRaceString(int nInt)
     if(fgets(l, 1023, racesFile->file) == NULL || getCSVField(l, nInt-1) == NULL) return "Unkown";
     return getCSVField(l, nInt-1);
 }
+
+//----------WEAPONS----------WEAPONS----------WEAPONS----------WEAPONS----------WEAPONS----------
 
 const char * getEffectivenessString(int nInt)
 {
@@ -374,6 +396,74 @@ void chooseNextAvailableWeapon(Character * chara)
     chara->currentWeapon = i;
 }
 
+//----------ITEMS----------ITEMS----------ITEMS----------ITEMS----------ITEMS----------ITEMS----------
+
+void showItems(Character * chara, Item * item)
+{
+
+}
+
+void printItem(Character * chara, Item * item)
+{
+    
+}
+
+void giveItem(Character * chara, Item * item)
+{
+    Pair * auxPair = searchTreeMap(chara->items, item->name);
+    if(auxPair != NULL)
+    {
+        Item * auxItem = auxPair->value;
+        auxItem->uses+=item->uses;
+    }
+    else
+    {
+        insertTreeMap(chara->items, item->name, item);
+    }
+    printf("Successfully given a %s\n", item->name);    
+}
+
+Item * createItem(char * name, char * description, int type, int uses, int value)
+{
+    Item * item = (Item*) malloc (sizeof(Item));
+    strcpy(item->name, name);
+    strcpy(item->description, description);
+    item->type = type;
+    item->uses = uses;
+    item->value = value;
+    return item;
+}
+
+Item * getRandItem(int type)
+{
+    if(itemsList[type].amount < 1)
+    {
+        printf("There are no items of type [%i] on [items.csv], please add at least one.", type);
+        exit(1);
+    }
+    Item * item = firstList(itemsList[type].list);
+    if(item == NULL)
+    {
+        printf("There are no items of type [%i] on [items.csv], please add at least one.", type);
+        exit(1);
+    }
+    int i = randIntLimits(0, itemsList[type].amount-1);
+    for(int j = 0 ; j < i ; j++)
+    {
+        item = nextList(itemsList[type].list);
+        if(item == NULL)
+        {
+            printf("The item n° %i doesn't exist, going to the last one\n", j);
+            item = prevList(itemsList[type].list);
+            break;
+        }
+    }
+    item = createItem(item->name, item->description, item->type, item->uses, item->value);
+    return item;
+}
+
+//----------CHARACTER----------CHARACTER----------CHARACTER----------CHARACTER----------CHARACTER----------
+
 // Generates a character with the stats
 Character * generateChara(Stats * stats, int level, char * name, int race)
 {
@@ -391,6 +481,7 @@ Character * generateChara(Stats * stats, int level, char * name, int race)
     newChar->weapons[2] = NULL;
     newChar->weapons[3] = NULL;
     newChar->currentWeapon = 0;
+    newChar->items = createTreeMap(lowerThanInt);
     newChar->isPlayer = 0;
     return newChar;
 }
@@ -921,6 +1012,19 @@ void play(RunManager * runManager)
     playerChara->currentWeapon = 1;
     printf("\nYou brought a %s as a weapon!\n", playerChara->weapons[playerChara->currentWeapon]->name);
 
+    printf("Giving you a random item!\n");
+    giveItem(playerChara, getRandItem(0));
+    giveItem(playerChara, getRandItem(1));
+    giveItem(playerChara, getRandItem(2));
+    giveItem(playerChara, getRandItem(3));
+    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+
     Character * enemyChara;
 
     printf("\n");
@@ -1063,18 +1167,98 @@ void showHighScores()
     fclose(highScoresFile);
 }
 
+void readItems()
+{
+    FILE * itemsFile = fopen("items.csv", "r");
+    if(itemsFile == NULL)
+    {
+        printf("ERROR: The file [items.csv] is missing.");
+        exit(1);
+    }
+    printf("mallocing items**\n");
+    itemsList = (ItemsListNode *) malloc (3*sizeof(ItemsListNode));
+    int n;
+    printf("creating the 4 lists\n");
+    for(n = 0 ; n < 4 ; n++)
+    {
+        itemsList[n].list = createList();
+        if(itemsList[n].list == NULL)
+        {
+            printf("There was an error while reading the [items.csv] file.");
+            exit(1);
+        }
+        printf("items list [%i] created\n", n);
+        itemsList[n].amount = 0;
+    }
+    printf("All lists of items created\n");
+    char l[1024];
+    n = 0;
+    Item * newItem = (Item*) malloc (sizeof(Item));
+    while(fgets(l, 1023, itemsFile) != NULL)
+    {
+        if(n == 0) n = 1;
+        else
+        {
+            printf("Creating Item\n");
+            Item * newItem = createItem((char*)getCSVField(l, 0), (char*)getCSVField(l, 1), atoi(getCSVField(l,2)), atoi(getCSVField(l,3)), atoi(getCSVField(l,4)));
+            printf("Item Created, pushing into list\n");
+            pushBack(itemsList[newItem->type].list, newItem);
+            printf("Pushed into list\n");
+            itemsList[newItem->type].amount++;
+        }
+    }
+    fclose(itemsFile);
+}
+
+/*void readItemsDoesntWork()
+{
+    itemsList = (ItemsListNode *) malloc (3*sizeof(ItemsListNode));
+    int n;
+    printf("creating the 4 lists\n");
+    for(n = 0 ; n < 4 ; n++)
+    {
+        itemsList[n].list = createList();
+        if(itemsList[n].list == NULL)
+        {
+            printf("There was an error while reading the [items.csv] file.");
+            exit(1);
+        }
+        printf("items list [%i] created\n", n);
+        itemsList[n].amount = 0;
+    }
+    printf("All lists of items created\n");
+    Item * newItem;
+    newItem = createItem("Healing Potion", "This classic of the classics will heal you a little amount of health, don't hesitate on using it", 1, 5, 20);
+    pushBack(itemsList[1].list, newItem);
+
+    newItem = createItem("Medium Healing Potion", "The medium brother of the family. Remember, you can't open it while being dead!", 1, 3, 50);
+    pushBack(itemsList[1].list, newItem);
+
+    newItem = createItem("Greater Healing Potion", "This big boy can heal anything but death! And your broken love... only you can fix that one.", 1, 1, 80);
+    pushBack(itemsList[1].list, newItem);
+
+    newItem = createItem("Test Item", "Testing the decorative items (also known as useless items)", 0, 1, 100);
+    pushBack(itemsList[0].list, newItem);
+    
+    newItem = createItem("Test Item 2", "Testing the Stats items", 2, 2, 100);
+    pushBack(itemsList[2].list, newItem);
+
+    newItem = createItem("Test Item 3", "Testing the others Items", 3, 3, 100);
+    pushBack(itemsList[3].list, newItem);
+}*/
+
 void readWeapons()
 {
-    FILE * f = fopen("weapons.csv", "r");
-    if(f == NULL)
+    FILE * weaponsFile = fopen("weapons.csv", "r");
+    if(weaponsFile == NULL)
     {
         printf("ERROR: The file [weapons.csv] is missing.");
         exit(1);
     }
     printf("mallocing weaponsList**\n");
-    weaponsList = (WeaponListNode *) malloc (5*sizeof(WeaponListNode));
+    weaponsList = (WeaponsListNode *) malloc (5*sizeof(WeaponsListNode));
     int i;
-    printf("creating the 4 lists\n");
+    printf("creating the 6 lists\n");
     for(i = 0 ; i < 6 ; i++)
     {
         weaponsList[i].list = createList();
@@ -1083,51 +1267,35 @@ void readWeapons()
             printf("There was an error while reading the [weapons.csv] file.");
             exit(1);
         }
+        printf("Weapon list [%i] created\n", i);
         weaponsList[i].amount = 0;
     }
+    printf("All lists of weapons created\n");
     char l[1024];
     i = 0;
-    while(fgets(l, 1023, f) != NULL)
+    while(fgets(l, 1023, weaponsFile) != NULL)
     {
         if(i == 0) i = 1;
         else
         {
-            Weapon * newWeapon = (Weapon *) malloc (sizeof(Weapon));
-            if(newWeapon == NULL)
-            {
-                printf("There was an error while reading the [weapons.csv] file.");
-                exit(1);
-            }
-            strcpy(newWeapon->name, getCSVField(l, 0));
-            strcpy(newWeapon->description, getCSVField(l, 1));
-            newWeapon->rarity = atoi(getCSVField(l,2));
-            newWeapon->maxDurability = atoi(getCSVField(l,3));
-            newWeapon->currentDurability = atoi(getCSVField(l,3));
-            newWeapon->effectiveness = atoi(getCSVField(l,4));
-            newWeapon->damageType = atoi(getCSVField(l,5));            
-            newWeapon->stats = (Stats *) malloc (sizeof(Stats));
-            if(newWeapon->stats == NULL)
-            {
-                printf("There was an error while reading the [weapons.csv] file.");
-                exit(1);
-            }
-            newWeapon->stats->hp = atoi(getCSVField(l,6));
-            newWeapon->stats->atk = atoi(getCSVField(l,7));
-            newWeapon->stats->spd = atoi(getCSVField(l,8));
-            newWeapon->stats->def = atoi(getCSVField(l,9));
-            newWeapon->stats->res = atoi(getCSVField(l,10));
+            Weapon * newWeapon = createWeapon((char*)getCSVField(l, 0), (char*)getCSVField(l, 1), atoi(getCSVField(l,2)), atoi(getCSVField(l,3)), atoi(getCSVField(l,4)), atoi(getCSVField(l,5)), atoi(getCSVField(l,6)), atoi(getCSVField(l,7)), atoi(getCSVField(l,8)), atoi(getCSVField(l,9)), atoi(getCSVField(l,10)));
 
             //printWeapon(newWeapon);
             pushBack(weaponsList[newWeapon->rarity-1].list, newWeapon);
             weaponsList[newWeapon->rarity-1].amount++;
         }
     }
-    fclose(f);
+    fclose(weaponsFile);
 }
 
 void openRaces()
 {
     racesFile = (RacesFile *) malloc (sizeof(RacesFile));
+    if(racesFile == NULL)
+    {
+        printf("There was an error reading the [races.csv] file.");
+        exit(1);
+    }
     racesFile->file = fopen("races.csv", "r");
     if(racesFile->file == NULL)
     {
@@ -1150,10 +1318,15 @@ void openRaces()
 
 void openAllFiles()
 {
+    readItems();
+    printf("[items.csv] read successfully\n");
+
     readWeapons();
     printf("[weapons.csv] read successfully\n");
+
     openRaces();
     printf("[races.csv] read successfully\n");
+
     printf("[highscores.csv] read successfully\n");
 }
 
