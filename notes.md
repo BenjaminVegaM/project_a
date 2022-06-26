@@ -1,16 +1,3 @@
-Species
-- 0 = none
-- 1 = Human
-- 2 = Elf
-- 3 = Dwarf
-- 4 = Goblin
-- 5 = Undead
-- 6 = Dragon
-
-Damage Type
-- 0 = Physical
-- 1 = Magical
-
 Character State
 - 0 = Normal
 - 1 = Attacking
