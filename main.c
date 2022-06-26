@@ -225,8 +225,10 @@ int saveRun(Character * playerChara, Character * enemyChara, RunManager * runMan
     saveItems(enemyChara, playerItemsFile);
     fclose(enemyItemsFile);
 
-    printf("Game Saved!\n");
+    freeCharacter(playerChara);
+    freeCharacter(enemyChara);
 
+    printf("Game Saved!\n");
     return 0;
 }
 
@@ -543,6 +545,20 @@ Character * createPlayerChara()
 
     Character * newChar = createChara(stats, 1, name, race);
     return newChar;
+}
+
+void freeCharacter(Character * chara)
+{
+    for(int w = 0 ; w < 4 ; w++) if(chara->weapons[w] != NULL) free(chara->weapons[w]);
+    Pair * pair = firstTreeMap(chara->items);
+    while(pair != NULL)
+    {
+        Item * item = pair->value;
+        free(item);
+        free(pair);
+        pair = nextTreeMap(chara->items);
+    }
+    free(chara);
 }
 
 void printShortChara(Character * chara)
@@ -1101,6 +1117,7 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 system("cls");
                 randomEvent(playerChara, runManager);
                 system("cls");
+                freeCharacter(enemyChara);
                 printf("-----After combat-----\n");
                 printf("Your current state:\n");
                 printShortChara(playerChara);
@@ -1121,6 +1138,8 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 printf("Game over");
                 pressEnterToContinue();
                 saveScore(playerChara, runManager);
+                freeCharacter(enemyChara);
+                freeCharacter(playerChara);
                 runManager->state = 0;
                 return;
             }
