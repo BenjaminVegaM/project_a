@@ -72,19 +72,26 @@ typedef struct
 
 typedef struct
 {
-    int state;
+    int state; //Current state of the game
     int floor; //Current Floor of the Run
     int room; //Current Room of the Floor
     int turn; //Current Turn of the current Battle
     int score; //Score of the Run
 }RunManager;
 
-
 //Global Variables
 ItemsListNode * itemsList;
 WeaponsListNode * weaponsList;
 RacesFile * racesFile;
 FILE * highScoresFile;
+
+//Turns a String to lowercase
+char * stringToLower(char * string)
+{
+    int i;
+    for(i = 0 ; string[i] ; i++) string[i] = tolower(string[i]);
+    return string;
+}
 
 //generates a random Integer number within a range
 int randIntLimits(int lower, int upper)
@@ -101,7 +108,8 @@ float randFloatLimits(int lower, int upper)
 }
 
 //Función para tomar un string de una coordenada específica de un archivo .csv
-const char *getCSVField (char * tmp, int k) {
+const char *getCSVField (char * tmp, int k)
+{
 
     int open_mark = 0, ini_i=0, i=0, j=0;
     char* ret=(char*) malloc (201*sizeof(char));
@@ -164,8 +172,24 @@ void pressEnterToContinue()
     while((enter = getchar()) != '\r' && enter != '\n');
 }
 
+//Frees memory of a character
+void freeCharacter(Character * chara)
+{
+    for(int w = 0 ; w < 4 ; w++) if(chara->weapons[w] != NULL) free(chara->weapons[w]);
+    Pair * pair = firstTreeMap(chara->items);
+    while(pair != NULL)
+    {
+        Item * item = pair->value;
+        free(item);
+        free(pair);
+        pair = nextTreeMap(chara->items);
+    }
+    free(chara);
+}
+
 //----------SAVE----------SAVE----------SAVE----------SAVE----------SAVE----------SAVE----------
 
+//Saves the items of the character in the file
 void saveItems(Character * chara, FILE * f)
 {
     Pair * pair = firstTreeMap(chara->items);
@@ -183,6 +207,7 @@ void saveItems(Character * chara, FILE * f)
     }
 }
 
+//Saves the info of the character in the file
 void saveCharacter(Character * chara, FILE * saveFile)
 {
     fprintf(saveFile, "\"%s\",%i,%i,%i,%i,%i,%i,%i,", chara->name, chara->race, chara->level, chara->experience, chara->expToLvlUp, chara->state, chara->currentHP, chara->currentWeapon);
@@ -195,6 +220,7 @@ void saveCharacter(Character * chara, FILE * saveFile)
     }
 }
 
+//Saves the data of the current run in the save files
 int saveRun(Character * playerChara, Character * enemyChara, RunManager * runManager)
 {
     printf("Saving the game...\n");
@@ -233,7 +259,7 @@ int saveRun(Character * playerChara, Character * enemyChara, RunManager * runMan
 }
 
 // Generates random stats based on the Level of the character
-Stats * genRanCharStats(int level)
+Stats * genRanCharaStats(int level)
 {
     float randNum;
     Stats * stats = (Stats *) malloc (sizeof (Stats));
@@ -294,6 +320,7 @@ const char * getDamageTypeString(int nInt)
     }
 }
 
+//Shows the info of a weapon
 void printWeapon(Weapon * weapon)
 {
     printf("Name: [%s]\n", weapon->name);
@@ -327,6 +354,7 @@ void showWeapons(Character * chara)
     }
 }
 
+//Reserves memory for a Weapon and initializes the variables
 Weapon * createWeapon(char * name, char * description, int rarity, int durability, int effectiveness, int damageType, int hp, int atk, int spd, int def, int res)
 {
     Weapon * weapon = (Weapon*) malloc (sizeof(Weapon));
@@ -358,6 +386,7 @@ int getRanWpnRarity(int lvl)
     return r;
 }
 
+//Chekcs if there is any weapon of the rarity received, if there is at least one then returns a random one of that rarity
 Weapon * getRanWeapon(int rarity)
 {
     if(weaponsList[rarity-1].amount < 1)
@@ -386,6 +415,7 @@ Weapon * getRanWeapon(int rarity)
     return weapon;
 }
 
+//Gives a weapon to a character, if they are full then asks to throw one
 void giveWeapon(Character * chara, Weapon * weapon)
 {
     int b = 1;
@@ -405,7 +435,11 @@ void giveWeapon(Character * chara, Weapon * weapon)
             {
                 scanf("%i", &w);
             }while(w < 1 || w > 4);
-            if(w == 4) printf("You left behind the %s.\nMaybe it wasn't that good.\n", weapon->name);
+            if(w == 4)
+            {
+                printf("You left behind the %s.\nMaybe it wasn't that good.\n", weapon->name);
+                free(weapon);   
+            }
             else
             {
                 printf("You threw the %s.\nJust don't regret it later.\n", chara->weapons[w]->name);
@@ -416,6 +450,7 @@ void giveWeapon(Character * chara, Weapon * weapon)
     }
 }
 
+//Changes the character's current weapon to the next available one, starting backwards to leave the empty hands as the last option.
 void chooseNextAvailableWeapon(Character * chara)
 {
     int i = 3;
@@ -425,16 +460,50 @@ void chooseNextAvailableWeapon(Character * chara)
 
 //----------ITEMS----------ITEMS----------ITEMS----------ITEMS----------ITEMS----------ITEMS----------
 
-void showItems(Character * chara, Item * item)
+const char * getTypeString(int nInt)
 {
-
+    switch(nInt)
+    {
+        case 0: return "Useless";
+        case 1: return "Healing";
+        case 2: return "Damaging";
+        case 3: return "Stats Buff";
+        case 4: return "Stats Debuff";
+    }
 }
 
-void printItem(Character * chara, Item * item)
+//Shows the info of an item
+void printItem(Item * item)
 {
-    
+    printf("Name: [%s]\n", item->name);
+    printf("Description: [%s]\n", item->description);
+    printf("Type: [%s]\n", getTypeString(item->type));
+    printf("Uses Left: [%i]\n", item->uses);
+    if(item->type != 0) printf("%s: [%i]\n", getTypeString(item->type), item->value);
 }
 
+//Shows all items on a character's inventory
+void showItems(Character * chara)
+{
+    Item * item;
+    Pair * pair = firstTreeMap(chara->items);
+    if(pair == NULL)
+    {
+        printf("It's completely empty!\n");
+        return;
+    }
+    int i = 0;
+    do
+    {
+        i++;
+        item = pair->value;
+        printf("---Item %i---\n", i);
+        printItem(item);
+        pair = nextTreeMap(chara->items);
+    }while(pair != NULL);
+}
+
+//Gives an item to a character or increases its uses left
 void giveItem(Character * chara, Item * item)
 {
     Pair * auxPair = searchTreeMap(chara->items, item->name);
@@ -450,6 +519,7 @@ void giveItem(Character * chara, Item * item)
     printf("Successfully given a %s\n", item->name);    
 }
 
+//Reserves memory for an Item and initializes the variables
 Item * createItem(char * name, char * description, int type, int uses, int value)
 {
     Item * item = (Item*) malloc (sizeof(Item));
@@ -461,7 +531,8 @@ Item * createItem(char * name, char * description, int type, int uses, int value
     return item;
 }
 
-Item * getRandItem(int type)
+//Chekcs if there is any item of the type received, if there is at least one then returns a random one of that type
+Item * getRanItem(int type)
 {
     if(itemsList[type].amount < 1)
     {
@@ -491,7 +562,7 @@ Item * getRandItem(int type)
 
 //----------CHARACTER----------CHARACTER----------CHARACTER----------CHARACTER----------CHARACTER----------
 
-// Generates a character with the stats
+// Generates a character with the name, race, level and stats
 Character * createChara(Stats * stats, int level, char * name, int race)
 {
     Character * newChar = (Character *) malloc (sizeof(Character));
@@ -513,17 +584,20 @@ Character * createChara(Stats * stats, int level, char * name, int race)
     return newChar;
 }
 
+//Creates a new character of the level received, with a random race and gives them a random weapon and a random item of type 1 or 2
 Character * genRanChara(int level)
 {
     int race = randIntLimits(1, racesFile->amount);
-    Character * newChara = createChara(genRanCharStats(level), level, (char*)getRaceString(race), race);
+    Character * newChara = createChara(genRanCharaStats(level), level, (char*)getRaceString(race), race);
     newChara->experience = randIntLimits(0, newChara->expToLvlUp-1);
     giveWeapon(newChara, getRanWeapon(getRanWpnRarity(level)));
     chooseNextAvailableWeapon(newChara);
+    giveItem(newChara, getRanItem(randIntLimits(1,2)));
     printf("The enemy got a [%s]!\n", newChara->weapons[newChara->currentWeapon]->name);
     return newChara;
 }
 
+//Asks for the name and the race the player wants, then generates stats and creates the character.
 Character * createPlayerChara()
 {
     printf("----------Character Creation----------\n");
@@ -541,26 +615,14 @@ Character * createPlayerChara()
     int race;
     scanf("%i", &race);
 
-    Stats * stats = genRanCharStats(3);
+    Stats * stats = genRanCharaStats(3);
 
     Character * newChar = createChara(stats, 1, name, race);
+    newChar->isPlayer=1;
     return newChar;
 }
 
-void freeCharacter(Character * chara)
-{
-    for(int w = 0 ; w < 4 ; w++) if(chara->weapons[w] != NULL) free(chara->weapons[w]);
-    Pair * pair = firstTreeMap(chara->items);
-    while(pair != NULL)
-    {
-        Item * item = pair->value;
-        free(item);
-        free(pair);
-        pair = nextTreeMap(chara->items);
-    }
-    free(chara);
-}
-
+//Shows only the important info of a character
 void printShortChara(Character * chara)
 {
     printf("[%s]", chara->name);
@@ -569,6 +631,7 @@ void printShortChara(Character * chara)
     printf("Exp [%i/%i]\n", chara->experience, chara->expToLvlUp);
 }
 
+//Shows the info of a character
 void printChara(Character * chara)
 {
     printf("Name  [%s]\n", chara->name);
@@ -740,6 +803,7 @@ void trapEvent(Character * chara, RunManager * runManager)
     }
 }
 
+//Triggers a random event
 void randomEvent(Character * chara, RunManager * runManager)
 {
     int op = randIntLimits(1,100);
@@ -765,6 +829,7 @@ void lowerWeaponDurability(Character * chara)
     }
 }
 
+//Increases the level of a character by 1 and increases their stats randomly
 void levelUp(Character * chara)
 {
     if(chara->isPlayer == 1) printf("-----LEVEL UP!-----\n");
@@ -814,17 +879,19 @@ void levelUp(Character * chara)
     chara->expToLvlUp+=5;
 }
 
+//Gives the amount received as experience to the chara, if it's equal or greater to the limit then levels up
 void giveExperience(Character * chara, int exp)
 {
     chara->experience += exp;
     printf("%s gained %i exp\n", chara->name, exp);
-    if(chara->experience > chara->expToLvlUp)
+    while(chara->experience > chara->expToLvlUp)
     {
         chara->experience-=chara->expToLvlUp;
         levelUp(chara);
     }
 }
 
+//Calculates the damage the Attacker would deald to the Defender
 int damageCalc(Character * attacker, Character * defender)
 {
     int totalAtk, dmgReduction, damageDealt;
@@ -843,7 +910,6 @@ int damageCalc(Character * attacker, Character * defender)
     damageDealt = fmax(1, totalAtk - dmgReduction);
     if(defender->state == 2)
     {
-        damageDealt = damageDealt/2;
         if(randIntLimits(1,10) == 1)
         {
             damageDealt = 0;
@@ -851,6 +917,7 @@ int damageCalc(Character * attacker, Character * defender)
         }
         else
         {
+            damageDealt = damageDealt/2;
             printf("%s blocked part of the attack!\n", defender->name);
         }
     }
@@ -890,12 +957,13 @@ int attack(Character * attacker, Character * defender)
     return 0;
 }
 
-int playerPhase(Character * chara1, Character * chara2, int score, RunManager * runManager)
+//Player's turn
+int playerPhase(Character * playerChara, Character * enemyChara, RunManager * runManager)
 {
     int op;
-    printf("-----Your turn!-----\n");
     do
     {
+        printf("-----Your turn!-----\n");
         printf("1. Attack\n");
         printf("2. Defend\n");
         printf("3. Show Player Info (Does not count as an action)\n");
@@ -906,40 +974,41 @@ int playerPhase(Character * chara1, Character * chara2, int score, RunManager * 
         {
             case 0:
             {
-                if(saveRun(chara1, chara2, runManager) == 0) return 2;
+                if(saveRun(playerChara, enemyChara, runManager) == 0) return 2;
                 break;
             }
             case 1:
             {
-                if(chara1->currentWeapon != 0)
+                chooseNextAvailableWeapon(playerChara);
+                if(playerChara->currentWeapon != 0)
                 {
                     printf("Choose a weapon to attack with\n");
                     for(int w = 1 ; w < 4 ; w++)
                     {
-                        if(chara1->weapons[w] != NULL) printf("%i. %s\n", w, chara1->weapons[w]->name);
+                        if(playerChara->weapons[w] != NULL) printf("%i. %s\n", w, playerChara->weapons[w]->name);
                     }
                     while(1)
                     {
-                        scanf("%i", &chara1->currentWeapon);
-                        if(chara1->weapons[chara1->currentWeapon] == NULL || chara1->currentWeapon > 3 || chara1->currentWeapon < 1) printf("Not valid\n");
+                        scanf("%i", &playerChara->currentWeapon);
+                        if(playerChara->weapons[playerChara->currentWeapon] == NULL || playerChara->currentWeapon > 3 || playerChara->currentWeapon < 1) printf("Not valid\n");
                         else break;
                     }
                 }
                 system("cls");
-                printf("%s attacks with the %s!\n", chara1->name, chara1->weapons[chara1->currentWeapon]->name);
-                chara1->state = 1;
-                score+=2;
+                printf("%s attacks with the %s!\n", playerChara->name, playerChara->weapons[playerChara->currentWeapon]->name);
+                playerChara->state = 1;
+                runManager->score+=2;
                 getchar();
-                if(attack(chara1, chara2) == 1) return 1;
+                if(attack(playerChara, enemyChara) == 1) return 1;
                 system("cls");
                 break;
             }
             case 2:
             {
                 system("cls");
-                printf("%s is defending the next attack!\n", chara1->name);
-                chara1->state = 2;
-                score++;
+                printf("%s is defending the next attack!\n", playerChara->name);
+                playerChara->state = 2;
+                runManager->score++;
                 getchar();
                 pressEnterToContinue();
                 system("cls");
@@ -948,10 +1017,12 @@ int playerPhase(Character * chara1, Character * chara2, int score, RunManager * 
             case 3:
             {
                 system("cls");
-                printf("----------Your current status----------\n");
-                printChara(chara1);
-                printf("\n------Your Weapons and Inventory-------\n");
-                showWeapons(chara1);
+                printf("------------Your current Info----------\n");
+                printChara(playerChara);
+                printf("\n-------------Your Weapons--------------\n");
+                showWeapons(playerChara);
+                printf("\n--------------Your Items---------------\n");
+                showItems(playerChara);
                 
                 getchar();
                 pressEnterToContinue();
@@ -961,10 +1032,12 @@ int playerPhase(Character * chara1, Character * chara2, int score, RunManager * 
             case 4:
             {
                 system("cls");
-                printf("------------Enemy's status------------\n");
-                printChara(chara2);
-                printf("\n-----Enemy's Weapon and Inventory-----\n");
-                showWeapons(chara2);
+                printf("---------------Enemy Info--------------\n");
+                printChara(enemyChara);
+                printf("\n------------Enemy's Weapons------------\n");
+                showWeapons(enemyChara);
+                printf("\n-------------Enemy's Items-------------\n");
+                showItems(enemyChara);
 
                 getchar();
                 pressEnterToContinue();
@@ -976,14 +1049,15 @@ int playerPhase(Character * chara1, Character * chara2, int score, RunManager * 
    return 0;
 }
 
-int aiPhase(Character * chara1, Character * chara2)
+//Automatically makes a choice for the enemy character for their act. If attack() returns 1, this function also returns 1.
+int aiPhase(Character * enemyChara, Character * playerChara)
 {
     int op;
     printf("-----Enemy turn!-----\n");
     pressEnterToContinue();
     system("cls");
     int chance;
-    if(chara1->currentHP >= chara1->currentHP/2) op = 1;
+    if(enemyChara->currentHP >= enemyChara->currentHP/2) op = 1;
     else
     {
         if(randIntLimits(1,100) >= 50) op = 1;
@@ -993,15 +1067,15 @@ int aiPhase(Character * chara1, Character * chara2)
     {
         case 1:
         {
-            printf("%s attacks!\n", chara1->name);
-            chara1->state = 1;
-            if(attack(chara1, chara2) == 1) return 1;
+            printf("%s attacks!\n", enemyChara->name);
+            enemyChara->state = 1;
+            if(attack(enemyChara, playerChara) == 1) return 1;
             break;
         }
         case 2:
         {
-            printf("%s is defending the next attack!\n", chara1->name);
-            chara1->state = 2;
+            printf("%s is defending the next attack!\n", enemyChara->name);
+            enemyChara->state = 2;
             break;
         }
     }
@@ -1009,6 +1083,7 @@ int aiPhase(Character * chara1, Character * chara2)
     system("cls");
 }
 
+//Saves the score on the Highscores file
 void saveScore(Character * chara, RunManager * runManager)
 {
     highScoresFile = fopen("./resources/highscores.csv", "a");
@@ -1025,19 +1100,21 @@ void saveScore(Character * chara, RunManager * runManager)
     fclose(highScoresFile);
 }
 
+//Clears the save.csv file
 void deleteSave()
 {
     FILE * saveFile = fopen("./save/save.csv", "w");
     fclose(saveFile);
 }
 
+//The actual game
 void play(RunManager * runManager, Character * playerChara, Character * enemyChara)
 {
-    int battleResults;
+    int battleResults, maxTurns = 10;
     printf("\n");
     while(runManager->state != 0)
     {
-        if(runManager->turn > 20) runManager->state = 4;
+        if(runManager->turn > maxTurns) runManager->state = 4;
         switch(runManager->state)
         {
             case 1:
@@ -1046,8 +1123,8 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 pressEnterToContinue();
                 system("cls");
                 printf("-----Before combat-----\n");
-                runManager->turn = 0, runManager->room++, runManager->score++;
-                if(runManager->room%11 == 0) runManager->floor++, runManager->room = 0, runManager->score+=2;
+                runManager->room++, runManager->score++;
+                if(runManager->room%11 == 0) runManager->floor++, runManager->room = 0, runManager->score+=10;
 
                 printf("Floor [%i] Room [%i]\n", runManager->floor, runManager->room);
                 pressEnterToContinue();
@@ -1070,13 +1147,13 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 pressEnterToContinue();
                 if(playerChara->stats->spd > enemyChara->stats->spd)
                 {
-                    battleResults = playerPhase(playerChara, enemyChara, runManager->score, runManager);
+                    battleResults = playerPhase(playerChara, enemyChara, runManager);
                     if(battleResults == 2) return;
                     else if(battleResults == 1)
                     {
                         printf("The foe has been defeated!\n");
                         runManager->state = 3;
-                        runManager->score+=3;
+                        runManager->score+=10;
                         pressEnterToContinue();
                         continue;
                     }
@@ -1084,7 +1161,7 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                     if(aiPhase(enemyChara, playerChara) == 1)
                     {
                         printf("You have been defeated...\n");
-                        runManager->state = 5;
+                        runManager->state = 4;
                         pressEnterToContinue();
                         continue;
                     }
@@ -1095,17 +1172,17 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                     if(aiPhase(enemyChara, playerChara) == 1)
                     {
                         printf("You have been defeated...\n");
-                        runManager->state = 5;
+                        runManager->state = 4;
                         pressEnterToContinue();
                         continue;
                     }
-                    battleResults = playerPhase(playerChara, enemyChara, runManager->score, runManager);
+                    battleResults = playerPhase(playerChara, enemyChara, runManager);
                     if(battleResults == 2) return;
                     else if(battleResults == 1)
                     {
                         printf("The foe has been defeated!\n");
                         runManager->state = 3;
-                        runManager->score+=3;
+                        runManager->score+=12;
                         pressEnterToContinue();
                         continue;
                     }
@@ -1121,20 +1198,15 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 printf("-----After combat-----\n");
                 printf("Your current state:\n");
                 printShortChara(playerChara);
-                runManager->state = 1;
                 runManager->turn = 0;
+                runManager->state = 1;
                 break;
             }
             case 4:
             {
-                system("cls");
-                printf("You took so long to defeat the enemy that more enemies came and you coulnd't against all of them.\n");
-                runManager->state = 5;
-            }
-            case 5:
-            {
                 deleteSave();
                 system("cls");
+                if(runManager->turn > maxTurns) printf("You took so long to defeat the enemy that more enemies came and you coulnd't against all of them.\n");
                 printf("Game over");
                 pressEnterToContinue();
                 saveScore(playerChara, runManager);
@@ -1149,9 +1221,9 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
 }
 
 //----------LOAD----------LOAD----------LOAD----------LOAD----------LOAD----------LOAD----------
+//Creates items for every line read in the file, then inserts them in the character's inventory
 void loadItems(Character * chara, FILE * file, char * l)
 {
-    if(strcmp(fgets(l, 1023, file), "NULL") == 0) return;
     while(fgets(l, 1023, file) != NULL)
     {
         Item * item = createItem((char*)getCSVField(l, 0), (char*)getCSVField(l, 1), atoi(getCSVField(l,2)), atoi(getCSVField(l,3)), atoi(getCSVField(l,4)));
@@ -1159,6 +1231,7 @@ void loadItems(Character * chara, FILE * file, char * l)
     }
 }
 
+//Creates a character and their weapons from the save file read.
 Character * loadChara(FILE * saveFile, char * l)
 {
     fgets(l, 1023, saveFile);
@@ -1189,6 +1262,7 @@ Character * loadChara(FILE * saveFile, char * l)
     return newChar;
 }
 
+//Loads a run by reading the save files
 void loadRun(RunManager * runManager)
 {
     system("cls");
@@ -1244,14 +1318,19 @@ void loadRun(RunManager * runManager)
     play(runManager, playerChara, enemyChara);
 }
 
+//Starts a new run from the start
 void newRun(RunManager * runManager)
 {
     system("cls");
-    Character * enemyChara;
-    Character * playerChara = createPlayerChara();
-    playerChara->isPlayer = 1;
+    runManager = (RunManager*) malloc (sizeof(RunManager));
+    runManager->room = 0;
+    runManager->floor = 1;
+    runManager->score = 0;
     runManager->turn = 0;
     runManager->state = 1;
+
+    Character * enemyChara;
+    Character * playerChara = createPlayerChara();
 
     system("cls");
     pressEnterToContinue();
@@ -1262,20 +1341,11 @@ void newRun(RunManager * runManager)
     printf("\nYou brought a %s as a weapon!\n", playerChara->weapons[playerChara->currentWeapon]->name);
 
     printf("Giving you a random item!\n");
-    giveItem(playerChara, getRandItem(0));
-    giveItem(playerChara, getRandItem(1));
-    giveItem(playerChara, getRandItem(2));
-    giveItem(playerChara, getRandItem(3));
-    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
-    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
-    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
-    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
-    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
-    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
-    giveItem(playerChara, getRandItem(randIntLimits(0,3)));
+    giveItem(playerChara, getRanItem(randIntLimits(0,2)));
     play(runManager, playerChara, enemyChara);
 }
 
+//Shows the HighScores History
 void showHighScores()
 {
     highScoresFile = fopen("./resources/highscores.csv", "r");
@@ -1301,8 +1371,19 @@ void showHighScores()
         printf("%-25s %18i\n", n, s);
     }while(fgets(l, 24, highScoresFile) != NULL);
     fclose(highScoresFile);
+    printf("Type \"Delete HighScores\" to clean ALL the HighScores in history.\n(This action can not be reverted)\n");
+    
+    char o[30];
+    gets(o);
+    if(strcmp("delete highscores", stringToLower(s)) == 0)
+    {
+        highScoresFile = fopen("./resources/highscores.csv", "w");
+        fclose(highScoresFile);
+        printf("HighScores have been deleted.\n");
+    }
 }
 
+//Reads the items file and creates the items on the list
 void readItems()
 {
     FILE * itemsFile = fopen("./resources/items.csv", "r");
@@ -1312,10 +1393,10 @@ void readItems()
         exit(1);
     }
     printf("mallocing items**\n");
-    itemsList = (ItemsListNode *) malloc (3*sizeof(ItemsListNode));
+    itemsList = (ItemsListNode *) malloc (4*sizeof(ItemsListNode));
     int n;
-    printf("creating the 4 lists\n");
-    for(n = 0 ; n < 4 ; n++)
+    printf("creating the 5 lists\n");
+    for(n = 0 ; n < 5 ; n++)
     {
         itemsList[n].list = createList();
         if(itemsList[n].list == NULL)
@@ -1346,43 +1427,7 @@ void readItems()
     fclose(itemsFile);
 }
 
-/*void readItemsDoesntWork()
-{
-    itemsList = (ItemsListNode *) malloc (3*sizeof(ItemsListNode));
-    int n;
-    printf("creating the 4 lists\n");
-    for(n = 0 ; n < 4 ; n++)
-    {
-        itemsList[n].list = createList();
-        if(itemsList[n].list == NULL)
-        {
-            printf("There was an error while reading the [items.csv] file.");
-            exit(1);
-        }
-        printf("items list [%i] created\n", n);
-        itemsList[n].amount = 0;
-    }
-    printf("All lists of items created\n");
-    Item * newItem;
-    newItem = createItem("Healing Potion", "This classic of the classics will heal you a little amount of health, don't hesitate on using it", 1, 5, 20);
-    pushBack(itemsList[1].list, newItem);
-
-    newItem = createItem("Medium Healing Potion", "The medium brother of the family. Remember, you can't open it while being dead!", 1, 3, 50);
-    pushBack(itemsList[1].list, newItem);
-
-    newItem = createItem("Greater Healing Potion", "This big boy can heal anything but death! And your broken love... only you can fix that one.", 1, 1, 80);
-    pushBack(itemsList[1].list, newItem);
-
-    newItem = createItem("Test Item", "Testing the decorative items (also known as useless items)", 0, 1, 100);
-    pushBack(itemsList[0].list, newItem);
-    
-    newItem = createItem("Test Item 2", "Testing the Stats items", 2, 2, 100);
-    pushBack(itemsList[2].list, newItem);
-
-    newItem = createItem("Test Item 3", "Testing the others Items", 3, 3, 100);
-    pushBack(itemsList[3].list, newItem);
-}*/
-
+//Reads the weapons file and creates the weapons on the list
 void readWeapons()
 {
     FILE * weaponsFile = fopen("./resources/weapons.csv", "r");
@@ -1424,6 +1469,7 @@ void readWeapons()
     fclose(weaponsFile);
 }
 
+//Opens the races file and calculates the amount of races in the file
 void openRaces()
 {
     racesFile = (RacesFile *) malloc (sizeof(RacesFile));
@@ -1452,6 +1498,7 @@ void openRaces()
     else printf("There was an error while reading the file [races.csv]");
 }
 
+//Opens all necesary files
 void openAllFiles()
 {
     readItems();
@@ -1466,6 +1513,7 @@ void openAllFiles()
     printf("[highscores.csv] read successfully\n");
 }
 
+//Main menu and calls openAllFiles
 int main()
 {
     srand(time(NULL));
@@ -1473,10 +1521,10 @@ int main()
     RunManager * runManager;
     openAllFiles();
     printf("------------------Start------------------\n");
+    pressEnterToContinue();
 
     while(op != 4)
     {
-        pressEnterToContinue();
         system("cls");
         printf("\n--------------------MENU--------------------\n");
         printf("1. New run\n");
@@ -1493,14 +1541,8 @@ int main()
             {
                 printf("If there is another run in progress it will be deleted...\nAre you sure you want to start from zero?\n1. Start\n2. Return\n");
                 scanf("%i", &c);
-                if(c == 1)
-                {
-                    runManager = (RunManager*) malloc (sizeof(RunManager));
-                    runManager->room = 0;
-                    runManager->floor = 1;
-                    runManager->score = 0;
-                    newRun(runManager);
-                }
+                if(c == 1) newRun(runManager);
+                pressEnterToContinue();
                 break;
             }
             case 2:
@@ -1508,16 +1550,19 @@ int main()
                 system("cls");
                 printf("Loading run...\n");
                 loadRun(runManager); 
+                pressEnterToContinue();
                 break;
             }
             case 3:
             {
                 system("cls");
                 showHighScores();
+                pressEnterToContinue();
                 break;
             }
             case 4:
             {
+                fclose(racesFile->file);
                 printf("Exiting the game...");
                 break;
             }
