@@ -619,6 +619,7 @@ int usePlayerItem(Character * chara1, Character * chara2, int id)
     if(pair == NULL)
     {
         printf("You don't have that item!\n");
+        getchar();
         return 0;
     }
     printf("You are using the item of ID %i\n", id);
@@ -779,6 +780,69 @@ void printChara(Character * chara)
     printf("    Res [%i]\n", chara->stats->res);
 }
 
+//Increases the level of a character by 1 and increases their stats randomly
+void levelUp(Character * chara)
+{
+    if(chara->isPlayer == 1) printf("-----LEVEL UP!-----\n");
+    else printf("-----THE ENEMY HAS LEVELED UP!!!-----\n");
+    getchar();
+
+    chara->level++;
+    printf("Level %i -> %i\n", chara->level-1, chara->level);
+
+    int chance = randIntLimits(0, 100);
+    if(chance <= 65)
+    {
+        chara->stats->hp++;
+        chara->currentHP++;
+        if(chara->isPlayer == 1) printf("HP +1\n"); getchar();
+    }
+
+    chance = randIntLimits(0, 100);
+    if(chance <= 60)
+    {
+        chara->stats->atk++;
+        if(chara->isPlayer == 1) printf("Atk +1\n"); getchar();
+    }
+
+    chance = randIntLimits(0, 100);
+    if(chance <= 40)
+    {
+        chara->stats->spd++;
+        if(chara->isPlayer == 1) printf("Spd +1\n"); getchar();
+    }
+
+    chance = randIntLimits(0, 100);
+    if(chance <= 40)
+    {
+        chara->stats->def++;
+        if(chara->isPlayer == 1) printf("Def +1\n"); getchar();
+    }
+
+    chance = randIntLimits(0, 100);
+    if(chance <= 50)
+    {
+        chara->stats->res++;
+        if(chara->isPlayer == 1) printf("Res +1\n"); getchar();
+    }
+    if(chara->isPlayer == 1) printf("-------------------\n");
+    else printf("They have gained some power, be careful...\n");
+
+    chara->expToLvlUp+=5;
+}
+
+//Gives the amount received as experience to the chara, if it's equal or greater to the limit then levels up
+void giveExperience(Character * chara, int exp)
+{
+    chara->experience += exp;
+    if(chara->isPlayer == 1) printf("You gained %i exp\n", exp);
+    while(chara->experience > chara->expToLvlUp)
+    {
+        chara->experience-=chara->expToLvlUp;
+        levelUp(chara);
+    }
+}
+
 int dialogueChoice(char * option1, char * option2)
 {
     int a;
@@ -788,7 +852,7 @@ int dialogueChoice(char * option1, char * option2)
     else return 0;
 }
 
-void dialogueEvent(Character * chara, RunManager * runManager)
+void dialogueEvent(Character * playerChara, RunManager * runManager)
 {
     int r = randIntLimits(0,3);
     switch(r)
@@ -822,6 +886,8 @@ void dialogueEvent(Character * chara, RunManager * runManager)
         {
             getchar();
             printf("\"Good job little warrior.\"\n\"You may have won this battle, but there are many more next.\"\n\"Continue if you have a death wish, or retreat while you can... if you can...\"\n");
+            getchar();
+            giveExperience(playerChara, (5+(playerChara->expToLvlUp/5)));
             pressEnterToContinue();
             break;
         }
@@ -836,7 +902,7 @@ void dialogueEvent(Character * chara, RunManager * runManager)
     }
 }
 
-void itemEvent(Character * chara)
+void itemEvent(Character * playerChara, RunManager * runManager)
 {
     getchar();
     printf("After defeating the enemy you notice a chest!\n");
@@ -847,13 +913,16 @@ void itemEvent(Character * chara)
         Item * item = getRanItem();
         getchar();
         printf("You found a %s!\n", item->name);
-        giveItem(chara, item);
+        giveItem(playerChara, item);
+        giveExperience(playerChara, 5);
+        if(item->type == 1) runManager->score+= (item->value/20);
+        else runManager->score+=item->value;
     }
     else printf("You skip the chest and head to the next room.\n");
     pressEnterToContinue();
 }
 
-void weaponEvent(Character * chara, RunManager * runManager)
+void weaponEvent(Character * playerChara, RunManager * runManager)
 {
     getchar();
     printf("After defeating the enemy you notice a chest!\n");
@@ -864,13 +933,15 @@ void weaponEvent(Character * chara, RunManager * runManager)
         Weapon * wpn = getRanWeapon(fmin(5, runManager->floor));
         getchar();
         printf("You found a %s!\n", wpn->name);
-        giveWeapon(chara, wpn);
+        giveWeapon(playerChara, wpn);
+        giveExperience(playerChara, 5);
+        runManager->score+=wpn->rarity;
     }
     else printf("You skip the chest and head to the next room.\n");
     pressEnterToContinue();
 }
 
-void trapEvent(Character * chara, RunManager * runManager)
+void trapEvent(Character * playerChara, RunManager * runManager)
 {
     int r = randIntLimits(0,6);
     int i;
@@ -883,8 +954,8 @@ void trapEvent(Character * chara, RunManager * runManager)
             getchar();
             if(dialogueChoice("Open", "Skip") == 1)
             {
-                i = randIntLimits(chara->stats->hp/3, chara->stats->hp/2);
-                chara->currentHP = fmax(1, (chara->currentHP - i));
+                i = randIntLimits(playerChara->stats->hp/3, playerChara->stats->hp/2);
+                playerChara->currentHP = fmax(1, (playerChara->currentHP - i));
                 printf("You opened it but nothing was inside...\n");
                 getchar();
                 printf("WAIT IT HAS FANGS\n");
@@ -899,7 +970,8 @@ void trapEvent(Character * chara, RunManager * runManager)
                 getchar();
                 printf("You should stab the next chest before opening it.\n");
                 getchar();
-                printf("Don't forget it! Or you already did?\n");
+                printf("Don't forget it!\n");
+                giveExperience(playerChara, 6);
             }
             else printf("You skip the chest and head to the next room.\n");
             pressEnterToContinue();
@@ -907,8 +979,8 @@ void trapEvent(Character * chara, RunManager * runManager)
         }
         case 1:
         {
-            i = randIntLimits(chara->stats->def/4, chara->stats->def/3);
-            chara->stats->def = fmax(0, (chara->stats->def - i));
+            i = randIntLimits(playerChara->stats->def/4, playerChara->stats->def/3);
+            playerChara->stats->def = fmax(0, (playerChara->stats->def - i));
             getchar();
             printf("You stepped on a trap!\n");
             getchar();
@@ -917,13 +989,15 @@ void trapEvent(Character * chara, RunManager * runManager)
             printf("It's desintegrating your clothes!\n");
             getchar();
             printf("Your Defense got reduced by %i!!!\n", i);
+            getchar();
+            giveExperience(playerChara, 3);
             pressEnterToContinue();
             break;
         }
         case 2:
         {
-            i = randIntLimits(chara->stats->res/4, chara->stats->res/3);
-            chara->stats->res = fmax(0, (chara->stats->res - i));
+            i = randIntLimits(playerChara->stats->res/4, playerChara->stats->res/3);
+            playerChara->stats->res = fmax(0, (playerChara->stats->res - i));
             getchar();
             printf("Entering the next room, you feel different...\n");
             getchar();
@@ -937,8 +1011,8 @@ void trapEvent(Character * chara, RunManager * runManager)
         }
         case 3:
         {
-            i = randIntLimits(chara->stats->spd/4, chara->stats->spd/3);
-            chara->stats->spd = fmax(0, (chara->stats->spd - i));
+            i = randIntLimits(playerChara->stats->spd/4, playerChara->stats->spd/3);
+            playerChara->stats->spd = fmax(0, (playerChara->stats->spd - i));
             getchar();
             printf("The gravity in from this room is stronger.\n");
             getchar();
@@ -980,8 +1054,8 @@ void trapEvent(Character * chara, RunManager * runManager)
         }
         case 6:
         {
-            i = randIntLimits(chara->stats->atk/4, chara->stats->atk/3);
-            chara->stats->atk = fmax(0, (chara->stats->atk - i));
+            i = randIntLimits(playerChara->stats->atk/4, playerChara->stats->atk/3);
+            playerChara->stats->atk = fmax(0, (playerChara->stats->atk - i));
             getchar();
             printf("You remembered an embarrassing moment of your past!\n");
             getchar();
@@ -993,13 +1067,13 @@ void trapEvent(Character * chara, RunManager * runManager)
 }
 
 //Triggers a random event
-void randomEvent(Character * chara, RunManager * runManager)
+void randomEvent(Character * playerChara, RunManager * runManager)
 {
     int op = randIntLimits(1,100);
-    if(op > 70) dialogueEvent(chara, runManager);
-    else if(op>40) weaponEvent(chara, runManager);
-    else if(op>15) itemEvent(chara);
-    else if(op>0) trapEvent(chara, runManager);
+    if(op > 70) dialogueEvent(playerChara, runManager);
+    else if(op>40) weaponEvent(playerChara, runManager);
+    else if(op>15) itemEvent(playerChara, runManager);
+    else if(op>0) trapEvent(playerChara, runManager);
 }
 
 void lowerWeaponDurability(Character * chara)
@@ -1015,68 +1089,6 @@ void lowerWeaponDurability(Character * chara)
             chooseNextAvailableWeapon(chara);
             if(chara->currentWeapon == 0) printf("Now they are unarmed!\n");
         }
-    }
-}
-
-//Increases the level of a character by 1 and increases their stats randomly
-void levelUp(Character * chara)
-{
-    if(chara->isPlayer == 1) printf("-----LEVEL UP!-----\n");
-    else printf("-----THE ENEMY HAS LEVELED UP!!!-----\n");
-
-    chara->level++;
-    printf("Level %i -> %i\n", chara->level-1, chara->level);
-
-    int chance = randIntLimits(0, 100);
-    if(chance <= 65)
-    {
-        chara->stats->hp++;
-        chara->currentHP++;
-        if(chara->isPlayer == 1) printf("HP +1\n");
-    }
-
-    chance = randIntLimits(0, 100);
-    if(chance <= 60)
-    {
-        chara->stats->atk++;
-        if(chara->isPlayer == 1) printf("Atk +1\n");
-    }
-
-    chance = randIntLimits(0, 100);
-    if(chance <= 40)
-    {
-        chara->stats->spd++;
-        if(chara->isPlayer == 1) printf("Spd +1\n");
-    }
-
-    chance = randIntLimits(0, 100);
-    if(chance <= 40)
-    {
-        chara->stats->def++;
-        if(chara->isPlayer == 1) printf("Def +1\n");
-    }
-
-    chance = randIntLimits(0, 100);
-    if(chance <= 50)
-    {
-        chara->stats->res++;
-        if(chara->isPlayer == 1) printf("Res +1\n");
-    }
-    if(chara->isPlayer == 1) printf("-------------------\n");
-    else printf("They have gained some power, be careful...\n");
-
-    chara->expToLvlUp+=5;
-}
-
-//Gives the amount received as experience to the chara, if it's equal or greater to the limit then levels up
-void giveExperience(Character * chara, int exp)
-{
-    chara->experience += exp;
-    printf("%s gained %i exp\n", chara->name, exp);
-    while(chara->experience > chara->expToLvlUp)
-    {
-        chara->experience-=chara->expToLvlUp;
-        levelUp(chara);
     }
 }
 
@@ -1139,6 +1151,7 @@ int attack(Character * attacker, Character * defender)
     {
         system("cls");
         printf("%s has been defeated!\n", defender->name);
+        getchar();
         giveExperience(attacker, defender->level*6);
         pressEnterToContinue();
         return 1;
@@ -1154,6 +1167,7 @@ int playerPhase(Character * playerChara, Character * enemyChara, RunManager * ru
     do
     {
         printf("-----Your turn!-----\n");
+        printf(">>> %s HP[%i/%i] Lvl %i Exp[%i/%i]\n", playerChara->name, playerChara->currentHP, playerChara->stats->hp, playerChara->level, playerChara->experience, playerChara->expToLvlUp);
         printf("1. Attack\n");
         printf("2. Defend\n");
         printf("3. Use Item\n");
@@ -1214,7 +1228,7 @@ int playerPhase(Character * playerChara, Character * enemyChara, RunManager * ru
                     printf("You don't have any items and wasted your turn!\n");
                     break;
                 }
-                printf("Choose an Item to use.\n");
+                printf("Choose an Item to use (type the ID).\n");
                 showItems(playerChara);
                 while(1)
                 {
@@ -1282,7 +1296,8 @@ int aiPhase(Character * enemyChara, Character * playerChara)
     {
         if(chance > 49) op = 1;
         else if(chance > 19) op = 2;
-        else op = 3;
+        else if(chance > 10) op = 3;
+        else op = 4;
     }
     switch(op)
     {
@@ -1305,9 +1320,11 @@ int aiPhase(Character * enemyChara, Character * playerChara)
             useAiItem(enemyChara, playerChara);
             break;
         }
+        case 4: return 2;
     }
     pressEnterToContinue();
     system("cls");
+    return 0;
 }
 
 //Saves the score on the Highscores file
@@ -1395,11 +1412,20 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 }
                 else if(playerChara->stats->spd <= enemyChara->stats->spd)
                 {
-                    
-                    if(aiPhase(enemyChara, playerChara) == 1)
+                    battleResults = aiPhase(enemyChara, playerChara);
+                    if(battleResults == 1)
                     {
                         printf("You have been defeated...\n");
                         runManager->state = 4;
+                        pressEnterToContinue();
+                        continue;
+                    }
+                    else if(battleResults == 2)
+                    {
+                        printf("The foe run away!\n");
+                        printf("They couldn't handle your coolness.\n");
+                        runManager->state = 3;
+                        runManager->score+=10;
                         pressEnterToContinue();
                         continue;
                     }
