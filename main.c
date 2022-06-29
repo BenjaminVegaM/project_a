@@ -645,8 +645,7 @@ void giveItem(Character * chara, Item * item)
     else
     {
         insertTreeMap(chara->items, &item->id, item);
-    }
-    printf("Successfully given a %s\n", item->name);    
+    } 
 }
 
 //Reserves memory for an Item and initializes the variables
@@ -727,19 +726,18 @@ Character * genRanChara(int level)
     giveWeapon(newChara, getRanWeapon(getRanWpnRarity(level)));
     chooseNextAvailableWeapon(newChara);
     giveItem(newChara, getRanItem(randIntLimits(0,5)));
-    printf("The enemy got a [%s]!\n", newChara->weapons[newChara->currentWeapon]->name);
+    printf("The enemy seems to have a %s.\n", newChara->weapons[newChara->currentWeapon]->name);
     return newChara;
 }
 
 //Asks for the name and the race the player wants, then generates stats and creates the character.
 Character * createPlayerChara()
 {
-    printf("----------Character Creation----------\n");
-    printf("What is your name?\n");
+    printf("\"What is your name?\"\n");
     char name[25];
     getchar();
     gets(name);
-    printf("What are you?\n");
+    printf("\"and you are a...\"\n");
     for(int i = 1 ; i < racesFile->amount+1 ; i++)
     {
         if(i%5 == 0) printf("\n");
@@ -1366,7 +1364,6 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 // Before a new combat, an Enemy has to be generated
                 pressEnterToContinue();
                 system("cls");
-                printf("-----Before combat-----\n");
                 runManager->room++, runManager->score++;
                 if(runManager->room%11 == 0) runManager->floor++, runManager->room = 0, runManager->score+=10;
 
@@ -1374,11 +1371,10 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 pressEnterToContinue();
                 system("cls");
 
-                printf("Generating new enemy\n");
+                printf("A new foe has appeared!\n");
                 pressEnterToContinue();
                 enemyChara = genRanChara(fmax(1,(int)((randFloatLimits(80, 120)/100)*playerChara->level)));
 
-                //Entering the Combating runManager->state
                 runManager->state = 2;
                 break;
             }
@@ -1448,7 +1444,6 @@ void play(RunManager * runManager, Character * playerChara, Character * enemyCha
                 randomEvent(playerChara, runManager);
                 system("cls");
                 freeCharacter(enemyChara);
-                printf("-----After combat-----\n");
                 printf("Your current state:\n");
                 printShortChara(playerChara);
                 runManager->turn = 0;
@@ -1571,9 +1566,39 @@ void loadRun(RunManager * runManager)
     play(runManager, playerChara, enemyChara);
 }
 
+void showStartingLore()
+{
+    printf("You heard of a dangerous and seemingly infinite dungeon.\n");
+    getchar();
+    printf("Your wish for adventure may finally be satisfied.\n");
+    getchar();
+    printf("...\n");
+    getchar();
+    printf("Some time passed and you finally found it, the entrance is right in front of you, do you enter?.\n");
+    getchar();
+}
+
 //Starts a new run from the start
 void newRun(RunManager * runManager)
 {
+    system("cls");
+    pressEnterToContinue();
+
+    showStartingLore();
+    if(dialogueChoice("Enter", "Leave") == 0)
+    {
+        system("cls");
+        printf("You decide today is not the day and leave!\n");
+        getchar();
+        getchar();
+        printf("Not because you are scared to enter.\n");
+        getchar();
+        printf("You just don't feel like it today.\n");
+        getchar();
+        printf("Maybe on another day... or year...\n");
+        getchar();
+        return;
+    }
     system("cls");
     runManager = (RunManager*) malloc (sizeof(RunManager));
     runManager->room = 0;
@@ -1584,16 +1609,13 @@ void newRun(RunManager * runManager)
 
     Character * enemyChara;
     Character * playerChara = createPlayerChara();
-
+    getchar();
     system("cls");
-    pressEnterToContinue();
-    printf("\nYour character's (randomly generated) stats:\n");
+    printf("\n%s's stats:\n\n", playerChara->name);
     printChara(playerChara);
     giveWeapon(playerChara, getRanWeapon(1));
     playerChara->currentWeapon = 1;
-    printf("\nYou brought a %s as a weapon!\n", playerChara->weapons[playerChara->currentWeapon]->name);
-
-    printf("Giving you a random item!\n");
+    printf("\nYou brought a %s as a weapon and an item you found in the way here.\n", playerChara->weapons[playerChara->currentWeapon]->name);
     giveItem(playerChara, getRanItem(randIntLimits(0,5)));
     play(runManager, playerChara, enemyChara);
 }
