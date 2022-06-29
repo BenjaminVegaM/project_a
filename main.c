@@ -255,7 +255,9 @@ int saveRun(Character * playerChara, Character * enemyChara, RunManager * runMan
     freeCharacter(playerChara);
     freeCharacter(enemyChara);
 
+    system("cls");
     printf("Game Saved!\n");
+    getchar();
     return 0;
 }
 
@@ -431,7 +433,7 @@ void giveWeapon(Character * chara, Weapon * weapon)
             printf("You don't have more space for weapons.\n");
             printf("Choose one to throw away.\n");
             for(w = 1 ; w < 4 ; w++) printf("%i. %s\n", w, chara->weapons[w]->name);
-            printf("4. (New)%s", weapon->name);
+            printf("4. (New)%s\n", weapon->name);
             do
             {
                 scanf("%i", &w);
@@ -574,7 +576,7 @@ void useItemHealth(Character * chara1, Character * chara2, Item * item)
 
 void useItemStats(Character * chara1, Character * chara2, Item * item)
 {
-    if(item->value >= 0)
+    if(item->subType == 1)
     {
         if(chara1->isPlayer == 1) printf("You used the %s!\nYour stats have increased!\n", item->name);
         else printf("The enemy used a Buff Item!\nTheir stats have increased!\n");
@@ -622,8 +624,6 @@ int usePlayerItem(Character * chara1, Character * chara2, int id)
         getchar();
         return 0;
     }
-    printf("You are using the item of ID %i\n", id);
-    getchar();
     Item * item = pair->value;
     if(item->type == 1) useItemHealth(chara1, chara2, item);
     else if(item->type > 1 && item->type < 8) useItemStats(chara1, chara2, item);
@@ -1085,7 +1085,8 @@ void lowerWeaponDurability(Character * chara)
             free(chara->weapons[chara->currentWeapon]);
             chara->weapons[chara->currentWeapon] = NULL;
             chooseNextAvailableWeapon(chara);
-            if(chara->currentWeapon == 0) printf("Now they are unarmed!\n");
+            getchar();
+            if(chara->currentWeapon == 0) printf("Now they are unarmed!\n"); getchar();
         }
     }
 }
@@ -1238,15 +1239,21 @@ int playerPhase(Character * playerChara, Character * enemyChara, RunManager * ru
             }
             case 4:
             {
+                getchar();
                 system("cls");
+
                 printf("------------Your current Info----------\n");
                 printChara(playerChara);
+                getchar();
+                system("cls");
+
                 printf("\n-------------Your Weapons--------------\n");
                 showWeapons(playerChara);
+                getchar();
+                system("cls");
+
                 printf("\n--------------Your Items---------------\n");
                 showItems(playerChara);
-                
-                getchar();
                 pressEnterToContinue();
                 system("cls");
                 break;
@@ -1254,15 +1261,22 @@ int playerPhase(Character * playerChara, Character * enemyChara, RunManager * ru
             case 5:
             {
                 pass = 1;
+                getchar();
                 system("cls");
+
                 printf("---------------Enemy Info--------------\n");
                 printChara(enemyChara);
+                getchar();
+                system("cls");
+
                 printf("\n------------Enemy's Weapons------------\n");
                 showWeapons(enemyChara);
+                getchar();
+                system("cls");
+
                 printf("\n-------------Enemy's Items-------------\n");
                 showItems(enemyChara);
 
-                getchar();
                 pressEnterToContinue();
                 system("cls");
                 break;
